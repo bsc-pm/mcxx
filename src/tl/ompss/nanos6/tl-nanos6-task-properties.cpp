@@ -762,6 +762,91 @@ namespace TL { namespace Nanos6 {
         }
     }
 
+    bool TaskProperties::check_taskloop_multidep_ind_var_use()
+    {
+        ERROR_CONDITION(!task_is_taskloop(),
+            "Task is not Taskloop", 0);
+
+        struct DependencesSet
+        {
+            TL::ObjectList<Nodecl::NodeclBase> &dep_list;
+        } deps[] = {
+            { _env.dep_in    },
+            { _env.dep_out   },
+            { _env.dep_inout },
+
+            { _env.dep_weakin    },
+            { _env.dep_weakout   },
+            { _env.dep_weakinout },
+
+            { _env.dep_commutative },
+            { _env.dep_concurrent  },
+
+            { _env.dep_weakcommutative },
+
+            { _env.dep_reduction     },
+            { _env.dep_weakreduction },
+        };
+
+        TL::Symbol ind_var = get_induction_variable();
+
+        for (DependencesSet *dep_set = deps;
+                dep_set != (DependencesSet *)(&deps + 1);
+                dep_set++)
+        {
+            TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
+
+            if (dep_list.empty())
+                continue;
+
+            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
+                    it != dep_list.end();
+                    it++)
+            {
+                TL::DataReference data_ref = *it;
+                TL::Type data_type = data_ref.get_data_type();
+
+                if (data_ref.is_multireference())
+                {
+                    TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
+                        data_ref.get_iterators_of_multireference();
+                    struct SymbolExistenceCheck : Nodecl::ExhaustiveVisitor<void>
+                    {
+                        TL::Symbol _sym;
+                        bool exist = false;
+
+                        SymbolExistenceCheck(TL::Symbol sym)
+                            : _sym(sym)
+                        { }
+
+                        bool exist_symbol() const { return exist; }
+
+                        virtual void visit(const Nodecl::Symbol& node)
+                        {
+                            TL::Symbol sym = node.get_symbol();
+                            if (_sym == sym) exist = true;
+                        }
+                    };
+
+                    for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_iterator it1 = multireferences.begin();
+                            it1 != multireferences.end();
+                            it1++)
+                    {
+                        ERROR_CONDITION(!it1->second.is<Nodecl::Range>(), "Invalid Node", 0);
+                        Nodecl::Range range = it1->second.as<Nodecl::Range>();
+                        SymbolExistenceCheck sec(ind_var);
+                        sec.walk(range.get_lower());
+                        sec.walk(range.get_upper());
+                        sec.walk(range.get_stride());
+                        if (sec.exist_symbol())
+                            return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     void TaskProperties::compute_number_of_dependences(
             TL::Symbol num_deps,
             TL::Scope enclosing_scope,
@@ -798,55 +883,64 @@ namespace TL { namespace Nanos6 {
         // Statements that compute the number of dependences of multideps where at
         // least one iterator depends on the value of another iterator
         Nodecl::List new_stmts;
-        for (DependencesSet *dep_set = deps;
-                dep_set != (DependencesSet *)(&deps + 1);
-                dep_set++)
+
+        // Fallback to num_deps = -1 in taskloop multideps dependent from induction variable.
+        // This is because we cannot compute them before creating the taskloop.
+        if (task_is_taskloop() && check_taskloop_multidep_ind_var_use())
         {
-            TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
-
-            if (dep_list.empty())
-                continue;
-
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
-                    it != dep_list.end();
-                    it++)
+            static_num_deps = -1;
+        }
+        else {
+            for (DependencesSet *dep_set = deps;
+                    dep_set != (DependencesSet *)(&deps + 1);
+                    dep_set++)
             {
-                TL::DataReference data_ref = *it;
-                TL::Type data_type = data_ref.get_data_type();
+                TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
 
-                Nodecl::NodeclBase curr_num_deps;
-                Nodecl::List register_statements;
-                if (!data_ref.is_multireference())
-                {
-                    ++static_num_deps;
-                }
-                else
-                {
-                    TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
-                        data_ref.get_iterators_of_multireference();
+                if (dep_list.empty())
+                    continue;
 
-                    if (iterators_are_not_independent(multireferences))
+                for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
+                        it != dep_list.end();
+                        it++)
+                {
+                    TL::DataReference data_ref = *it;
+                    TL::Type data_type = data_ref.get_data_type();
+
+                    Nodecl::NodeclBase curr_num_deps;
+                    Nodecl::List register_statements;
+                    if (!data_ref.is_multireference())
                     {
-                        Nodecl::Utils::SimpleSymbolMap extended_symbol_map;
-                        create_induction_variables_for_iterators(
-                                multireferences, enclosing_scope, extended_symbol_map, new_stmts);
-
-                        Nodecl::List inner_stmts =
-                            Nodecl::List::make(
-                                Nodecl::ExpressionStatement::make(
-                                    Nodecl::Postincrement::make(num_deps.make_nodecl(), TL::Type::get_size_t_type())));
-
-                        Nodecl::List loop_stmts =
-                            create_loop_stmts_for_iterators(
-                                    multireferences, extended_symbol_map, inner_stmts, enclosing_scope, _related_function);
-
-                        new_stmts.append(loop_stmts);
+                        ++static_num_deps;
                     }
                     else
                     {
-                        Nodecl::NodeclBase curr_dyn_num_deps =
-                            compute_num_of_dependences_for_independent_iterators(multireferences);
-                        dyn_num_deps = Nodecl::Add::make(dyn_num_deps, curr_dyn_num_deps, dyn_num_deps.get_type());
+                        TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
+                            data_ref.get_iterators_of_multireference();
+
+                        if (iterators_are_not_independent(multireferences))
+                        {
+                            Nodecl::Utils::SimpleSymbolMap extended_symbol_map;
+                            create_induction_variables_for_iterators(
+                                    multireferences, enclosing_scope, extended_symbol_map, new_stmts);
+
+                            Nodecl::List inner_stmts =
+                                Nodecl::List::make(
+                                    Nodecl::ExpressionStatement::make(
+                                        Nodecl::Postincrement::make(num_deps.make_nodecl(), TL::Type::get_size_t_type())));
+
+                            Nodecl::List loop_stmts =
+                                create_loop_stmts_for_iterators(
+                                        multireferences, extended_symbol_map, inner_stmts, enclosing_scope, _related_function);
+
+                            new_stmts.append(loop_stmts);
+                        }
+                        else
+                        {
+                            Nodecl::NodeclBase curr_dyn_num_deps =
+                                compute_num_of_dependences_for_independent_iterators(multireferences);
+                            dyn_num_deps = Nodecl::Add::make(dyn_num_deps, curr_dyn_num_deps, dyn_num_deps.get_type());
+                        }
                     }
                 }
             }
@@ -3865,6 +3959,9 @@ void TaskProperties::create_task_implementations_info(
                             /* member_literal */ Nodecl::NodeclBase::null(),
                             lower_bound_field.get_type()),
                         lower_bound_field.get_type().no_ref()));
+
+            // Taskloop uses of induction variable default to lower_bound
+            symbol_map.add_map(get_induction_variable(), tl_lower_bound_sym);
 
             Nodecl::NodeclBase upper_bound_field = get_field_taskloop("upper_bound");
             tl_upper_bound_sym = unpacked_fun_inside_scope.new_symbol("tl_upper");
