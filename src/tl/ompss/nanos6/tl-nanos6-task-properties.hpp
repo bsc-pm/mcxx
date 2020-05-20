@@ -235,10 +235,6 @@ namespace TL { namespace Nanos6 {
              */
             void firstprivatize_symbols_without_data_sharing();
 
-            // Taskloops may have multideps using the induction variable
-            // returns true if so, false otherwise.
-            bool check_taskloop_multidep_ind_var_use();
-
         public:
             TaskProperties(
                     const Nodecl::OpenMP::Task& node,
