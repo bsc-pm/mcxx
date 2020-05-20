@@ -762,91 +762,6 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    bool TaskProperties::check_taskloop_multidep_ind_var_use()
-    {
-        ERROR_CONDITION(!task_is_taskloop(),
-            "Task is not Taskloop", 0);
-
-        struct DependencesSet
-        {
-            TL::ObjectList<Nodecl::NodeclBase> &dep_list;
-        } deps[] = {
-            { _env.dep_in    },
-            { _env.dep_out   },
-            { _env.dep_inout },
-
-            { _env.dep_weakin    },
-            { _env.dep_weakout   },
-            { _env.dep_weakinout },
-
-            { _env.dep_commutative },
-            { _env.dep_concurrent  },
-
-            { _env.dep_weakcommutative },
-
-            { _env.dep_reduction     },
-            { _env.dep_weakreduction },
-        };
-
-        TL::Symbol ind_var = get_induction_variable();
-
-        for (DependencesSet *dep_set = deps;
-                dep_set != (DependencesSet *)(&deps + 1);
-                dep_set++)
-        {
-            TL::ObjectList<Nodecl::NodeclBase> &dep_list = dep_set->dep_list;
-
-            if (dep_list.empty())
-                continue;
-
-            for (TL::ObjectList<Nodecl::NodeclBase>::iterator it = dep_list.begin();
-                    it != dep_list.end();
-                    it++)
-            {
-                TL::DataReference data_ref = *it;
-                TL::Type data_type = data_ref.get_data_type();
-
-                if (data_ref.is_multireference())
-                {
-                    TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
-                        data_ref.get_iterators_of_multireference();
-                    struct SymbolExistenceCheck : Nodecl::ExhaustiveVisitor<void>
-                    {
-                        TL::Symbol _sym;
-                        bool exist = false;
-
-                        SymbolExistenceCheck(TL::Symbol sym)
-                            : _sym(sym)
-                        { }
-
-                        bool exist_symbol() const { return exist; }
-
-                        virtual void visit(const Nodecl::Symbol& node)
-                        {
-                            TL::Symbol sym = node.get_symbol();
-                            if (_sym == sym) exist = true;
-                        }
-                    };
-
-                    for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_iterator it1 = multireferences.begin();
-                            it1 != multireferences.end();
-                            it1++)
-                    {
-                        ERROR_CONDITION(!it1->second.is<Nodecl::Range>(), "Invalid Node", 0);
-                        Nodecl::Range range = it1->second.as<Nodecl::Range>();
-                        SymbolExistenceCheck sec(ind_var);
-                        sec.walk(range.get_lower());
-                        sec.walk(range.get_upper());
-                        sec.walk(range.get_stride());
-                        if (sec.exist_symbol())
-                            return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
     void TaskProperties::compute_number_of_dependences(
             TL::Symbol num_deps,
             TL::Scope enclosing_scope,
@@ -884,9 +799,8 @@ namespace TL { namespace Nanos6 {
         // least one iterator depends on the value of another iterator
         Nodecl::List new_stmts;
 
-        // Fallback to num_deps = -1 in taskloop multideps dependent from induction variable.
-        // This is because we cannot compute them before creating the taskloop.
-        if (task_is_taskloop() && check_taskloop_multidep_ind_var_use())
+        // Fallback to num_deps = -1 in taskloop
+        if (task_is_taskloop())
         {
             static_num_deps = -1;
         }
