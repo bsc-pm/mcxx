@@ -1617,6 +1617,10 @@ namespace TL { namespace OpenMP {
                 "priority", "Its priority will be",
                 directive, context, execution_environment);
 
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Cost>(
+                "cost", "Its cost will be",
+                directive, directive, execution_environment);
+
         pragma_line.diagnostic_unused_clauses();
 
         ERROR_CONDITION(!context.get_in_context().is<Nodecl::List>(), "Expecting list", 0);
