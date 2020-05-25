@@ -944,6 +944,11 @@ namespace Analysis {
         return (get_type() == __OmpVirtualTaskSync);
     }
 
+    bool Node::is_ompss_lint_node()
+    {
+        return (get_graph_type() == __OmpssLint);
+    }
+
     bool Node::is_vector_node()
     {
         if (is_graph_node())
@@ -1146,6 +1151,19 @@ namespace Analysis {
         }
 
         return shared_vars;
+    }
+
+    bool Node::has_verified_clause()
+    {
+        const TL::Analysis::PCFGPragmaInfo& task_pragma_info = get_pragma_node_info();
+        return task_pragma_info.has_clause(NODECL_OMP_SS_LINT_VERIFIED);
+    }
+
+    void Node::add_verified_clause(const Nodecl::OmpSs::LintVerified& n)
+    {
+        TL::Analysis::PCFGPragmaInfo task_pragma_info = get_pragma_node_info();
+        task_pragma_info.add_clause(n);
+        set_data<PCFGPragmaInfo>(_OMP_INFO, task_pragma_info);
     }
 
     // ******************* Getters for OpenMP/OmpSs clauses info ******************** //

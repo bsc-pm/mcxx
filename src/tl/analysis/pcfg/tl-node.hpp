@@ -489,6 +489,9 @@ namespace Analysis {
             //! Returns true when the node is a TASKYIELD node
             bool is_omp_taskyield_node();
 
+            //! Returns true when the node is a OMPSS_LINT node
+            bool is_ompss_lint_node();
+
             //! Returns true when the node is a OMP_VIRTUAL_TASKSYNC node
             bool is_omp_virtual_tasksync();
 
@@ -511,7 +514,7 @@ namespace Analysis {
 
 
             // ****************************************************************************** //
-            // ******************* Getters for OpenMP/OmpSs clauses info ******************** //
+            // ************* Getters and setters for OpenMP/OmpSs clauses info ************** //
 
             //! Returns a list of all symbols that have private data-sharing within the node
             //! This only makes sense for OpenMP nodes
@@ -532,6 +535,12 @@ namespace Analysis {
             //! Returns a list of all variables that are shared within the node (shared, dep_in|out|inout, concurrent, commutative)
             //! This only makes sense for OpenMP nodes
             NodeclSet get_all_shared_accesses();
+
+            //! Return true if the node contains a Lint verified clause
+            bool has_verified_clause();
+
+            //! Add verified clause to the node
+            void add_verified_clause(const Nodecl::OmpSs::LintVerified& n);
 
             // ******************* Getters for OpenMP/OmpSs clauses info ******************** //
             // ****************************************************************************** //

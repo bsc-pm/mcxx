@@ -1227,6 +1227,30 @@ src_tl_analysis_aliasing_libaliasing_la_SOURCES = \
         $(END)
 
 ##########################################################################
+# src/tl/analysis/dom_tree
+##########################################################################
+
+lib_LTLIBRARIES += src/tl/analysis/dom_tree/libdom_tree.la
+
+src_tl_analysis_dom_tree_libdom_tree_la_CFLAGS   = $(tl_cflags) \
+                                                   -I$(top_srcdir)/src/tl/analysis/common \
+                                                   -I $(srcdir)/src/tl/omp/common
+src_tl_analysis_dom_tree_libdom_tree_la_CXXFLAGS = $(tl_cflags) \
+                                                   -I$(top_srcdir)/src/tl/analysis/common \
+                                                   -I $(srcdir)/src/tl/omp/common
+src_tl_analysis_dom_tree_libdom_tree_la_LDFLAGS  = $(tl_ldflags)
+src_tl_analysis_dom_tree_libdom_tree_la_LIBADD   = $(tl_libadd) \
+                                                   src/tl/libtl.la \
+                                                   src/tl/omp/common/libtlomp-common.la \
+                                                   src/tl/analysis/common/libanalysis_utils.la \
+                                                   $(END)
+
+src_tl_analysis_dom_tree_libdom_tree_la_SOURCES = \
+                    src/tl/analysis/dom_tree/tl-dom-tree.hpp \
+                    src/tl/analysis/dom_tree/tl-dom-tree.cpp \
+                    $(END)
+
+##########################################################################
 # src/tl/analysis/pcfg
 ##########################################################################
 
@@ -1486,6 +1510,7 @@ src_tl_analysis_interface_libanalysis_interface_la_CXXFLAGS= $(tl_cflags) \
 				-I$(srcdir)/src/tl/optimizations \
 				-I$(srcdir)/src/tl/analysis/common \
 				-I$(srcdir)/src/tl/analysis/aliasing \
+				-I$(srcdir)/src/tl/analysis/dom_tree \
 				-I$(srcdir)/src/tl/analysis/pcfg \
 				-I$(srcdir)/src/tl/analysis/pointers \
 				-I$(srcdir)/src/tl/analysis/use_def \
@@ -1508,6 +1533,7 @@ src_tl_analysis_interface_libanalysis_interface_la_LIBADD= \
 				src/tl/optimizations/libtloptimizations.la \
 				src/tl/analysis/common/libanalysis_utils.la \
 				src/tl/analysis/aliasing/libaliasing.la \
+				src/tl/analysis/dom_tree/libdom_tree.la \
 				src/tl/analysis/pcfg/libpcfg.la \
 				src/tl/analysis/pointers/libpointer_size.la \
 				src/tl/analysis/use_def/libuse_def.la \
@@ -1540,11 +1566,13 @@ phases_LTLIBRARIES += src/tl/analysis/test_phase/libtest_analysis.la
 src_tl_analysis_test_phase_libtest_analysis_la_CFLAGS = $(phases_cflags)
 src_tl_analysis_test_phase_libtest_analysis_la_CXXFLAGS = $(phases_cxxflags) \
 							  $(ANALYSIS_CFLAGS) \
+							  -I$(srcdir)/src/tl/analysis/dom_tree \
 							  -I$(srcdir)/src/tl/analysis/interface \
 							  -I$(srcdir)/src/tl/analysis/tdg
 src_tl_analysis_test_phase_libtest_analysis_la_LDFLAGS = $(phases_ldflags)
 src_tl_analysis_test_phase_libtest_analysis_la_LIBADD = $(phases_libadd) \
 							$(ANALYSIS_LIBADD) \
+							src/tl/analysis/dom_tree/libdom_tree.la \
 							src/tl/analysis/interface/libanalysis_interface.la \
 							src/tl/analysis/tdg/libtdg.la
 
@@ -1783,6 +1811,7 @@ src_tl_omp_base_libtlomp_base_la_CXXFLAGS = $(phases_cxxflags) \
                          -I $(srcdir)/src/tl/vectorization/vectorizer \
                          -I $(srcdir)/src/tl/analysis/interface\
                          -I $(srcdir)/src/tl/analysis/common \
+                         -I $(srcdir)/src/tl/analysis/dom_tree \
                          -I $(srcdir)/src/tl/analysis/pcfg \
                          -I $(srcdir)/src/tl/analysis/tdg \
                          $(END)
@@ -1824,6 +1853,7 @@ phases_LTLIBRARIES += src/tl/omp/auto-scope/libtlomp_auto_scope.la
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/interface \
                           -I $(srcdir)/src/tl/analysis/common \
+                          -I $(srcdir)/src/tl/analysis/dom_tree \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
                           -I $(srcdir)/src/tl/omp/common \
@@ -1833,6 +1863,7 @@ src_tl_omp_auto_scope_libtlomp_auto_scope_la_CFLAGS = $(tl_cflags) \
 src_tl_omp_auto_scope_libtlomp_auto_scope_la_CXXFLAGS = $(tl_cflags) \
                           -I $(srcdir)/src/tl/analysis/interface \
                           -I $(srcdir)/src/tl/analysis/common \
+                          -I $(srcdir)/src/tl/analysis/dom_tree \
                           -I $(srcdir)/src/tl/analysis/pcfg \
                           -I $(srcdir)/src/tl/analysis/tdg \
                           -I $(srcdir)/src/tl/omp/common \
@@ -2332,6 +2363,7 @@ phases_LTLIBRARIES += src/tl/omp/lint/libtlomp-lint.la
 
 src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cxxflags) \
                           -I $(top_srcdir)/src/tl/omp/common \
+                          -I $(top_srcdir)/src/tl/analysis/dom_tree \
                           -I $(top_srcdir)/src/tl/analysis/pcfg \
                           -I $(top_srcdir)/src/tl/analysis/common \
                           -I $(top_srcdir)/src/tl/analysis/tasks \
@@ -2342,6 +2374,7 @@ src_tl_omp_lint_libtlomp_lint_la_CXXFLAGS = $(phases_cxxflags) \
 src_tl_omp_lint_libtlomp_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_omp_lint_libtlomp_lint_la_LIBADD = $(phases_libadd) \
 			  $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+			  $(top_builddir)/src/tl/analysis/dom_tree/libdom_tree.la \
 			  $(top_builddir)/src/tl/analysis/pcfg/libpcfg.la \
 			  $(top_builddir)/src/tl/analysis/tasks/libtasks_analysis.la \
 			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
@@ -2426,6 +2459,44 @@ src_tl_ompss_nanos6_libtlnanos6_lowering_la_SOURCES = \
 endif
 
 ##########################################################################
+# src/tl/ompss/oss-lint
+##########################################################################
+
+if BUILD_OSS_LINT
+
+phases_LTLIBRARIES += src/tl/ompss/oss_lint/libtloss-lint.la
+
+src_tl_ompss_oss_lint_libtloss_lint_la_CXXFLAGS = $(phases_cxxflags) \
+                          -I $(top_srcdir)/src/tl/omp/common \
+                          -I $(top_srcdir)/src/tl/optimizations \
+                          -I $(top_srcdir)/src/tl/analysis/dom_tree \
+                          -I $(top_srcdir)/src/tl/analysis/pcfg \
+                          -I $(top_srcdir)/src/tl/analysis/common \
+                          -I $(top_srcdir)/src/tl/analysis/tasks \
+                          -I $(top_srcdir)/src/tl/analysis/tdg \
+                          -I $(top_srcdir)/src/tl/analysis/interface \
+                          $(END)
+                          
+
+src_tl_ompss_oss_lint_libtloss_lint_la_LDFLAGS = $(phases_ldflags)
+src_tl_ompss_oss_lint_libtloss_lint_la_LIBADD = $(phases_libadd) \
+			  $(top_builddir)/src/tl/omp/common/libtlomp-common.la \
+			  $(top_builddir)/src/tl/optimizations/libtloptimizations.la \
+			  $(top_builddir)/src/tl/analysis/dom_tree/libdom_tree.la \
+			  $(ANALYSIS_LIBADD) \
+			  $(top_builddir)/src/tl/analysis/tasks/libtasks_analysis.la \
+			  $(top_builddir)/src/tl/analysis/tdg/libtdg.la \
+			  $(top_builddir)/src/tl/analysis/interface/libanalysis_interface.la \
+              $(END)
+
+src_tl_ompss_oss_lint_libtloss_lint_la_SOURCES = \
+   src/tl/ompss/oss_lint/tl-oss-lint.hpp \
+   src/tl/ompss/oss_lint/tl-oss-lint.cpp \
+   $(END)
+
+endif
+
+##########################################################################
 # src/tl/analysis/checker
 ##########################################################################
 
@@ -2435,6 +2506,7 @@ phases_LTLIBRARIES += src/tl/analysis/libanalysis_check.la
 src_tl_analysis_libanalysis_check_la_CFLAGS = $(phases_cflags)
 src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cxxflags) \
 						$(ANALYSIS_CFLAGS) \
+						-I$(srcdir)/src/tl/analysis/dom_tree \
 						-I$(srcdir)/src/tl/analysis/interface \
 						-I$(srcdir)/src/tl/analysis/tdg \
 						-I$(srcdir)/src/tl/omp/core \
@@ -2443,6 +2515,7 @@ src_tl_analysis_libanalysis_check_la_CXXFLAGS = $(phases_cxxflags) \
 src_tl_analysis_libanalysis_check_la_LDFLAGS = $(phases_ldflags)
 src_tl_analysis_libanalysis_check_la_LIBADD = $(phases_libadd) \
 						$(ANALYSIS_LIBADD) \
+						src/tl/analysis/dom_tree/libdom_tree.la \
 						src/tl/analysis/interface/libanalysis_interface.la \
 						src/tl/analysis/tdg/libtdg.la \
 						src/tl/omp/lint/libtlomp-lint.la

@@ -123,7 +123,70 @@ namespace Analysis {
 
                         // The upper bound must be computed depending on the loop limits
                 // TODO
+                if (n->is_for_loop())
+                {
+                    for (Utils::InductionVarList::const_iterator it = ivs.begin(); it != ivs.end(); ++it)
+                    {
+                        if (!(*it)->get_ub().empty() || (*it)->get_lb().size()!=1)
+                            continue;
 
+                        // This can only be done if the loop control is complete and the variable used is not modified inside the loop
+                        Nodecl::LoopControl loop_header = n->get_graph_related_ast().as<ForStatement>().get_loop_header().as<Nodecl::LoopControl>();
+                        NBase init = loop_header.get_init();
+                        if (init.as<Nodecl::List>().size() != 1)
+                            continue;
+                        init = init.as<Nodecl::List>().front();
+                        NBase cond = loop_header.get_cond();
+                        NBase incr = loop_header.get_next();
+                        // FIXME Other structures in the UB could be doable (<, <=, >, >=)
+                        if ((!init.is<Nodecl::Assignment>() && !init.is<Nodecl::ObjectInit>())
+                            || !cond.is<Nodecl::LowerOrEqualThan>())
+                            continue;
+
+                        NBase loop_var;
+                        if (init.is<Nodecl::Assignment>())
+                            loop_var = init.as<Nodecl::Assignment>().get_lhs();
+                        else // ObjectInit
+                            loop_var = Nodecl::Symbol::make(init.as<Nodecl::ObjectInit>().get_symbol());
+
+                        bool loop_var_is_iv = Utils::induction_variable_list_contains_variable(ivs, loop_var);
+                        Utils::InductionVar* loop_var_iv = Utils::get_induction_variable_from_list(ivs, loop_var);
+
+                        if (!loop_var_is_iv
+                            || loop_var_iv->get_lb().size()!=1
+                            || loop_var_iv->get_ub().size()!=1)
+                            break;
+
+                        if (!Nodecl::Utils::structurally_equal_nodecls(cond.as<Nodecl::LowerOrEqualThan>().get_lhs(), loop_var, true))
+                            break;
+
+                        NBase loop_var_lb = loop_var_iv->get_lb().begin()->shallow_copy();
+                        NBase loop_var_ub = loop_var_iv->get_ub().begin()->shallow_copy();
+                        NBase loop_var_incr = loop_var_iv->get_increment();
+                        if (!loop_var_lb.is_null() && !loop_var_ub.is_null() && !loop_var_incr.is_null()
+                            && loop_var_incr.is_constant() && const_value_is_one(loop_var_incr.get_constant()))
+                        {
+                            NBase num_iter;
+                            if (loop_var_lb.is_constant() && const_value_is_zero(loop_var_lb.get_constant()))
+                            {
+                                num_iter = loop_var_ub;
+                            }
+                            else
+                            {
+                                num_iter = Nodecl::Minus::make(loop_var_ub, loop_var_lb, loop_var_ub.get_type());
+                            }
+                            NBase it_lb = (*it)->get_lb().begin()->shallow_copy();
+                            if (it_lb.is_constant() && const_value_is_zero(it_lb.get_constant()))
+                            {
+                                (*it)->set_ub(num_iter);
+                            }
+                            else
+                            {
+                                (*it)->set_ub(Nodecl::Add::make(num_iter, it_lb, num_iter.get_type()));
+                            }
+                        }
+                    }
+                }
             }
         }
 

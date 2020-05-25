@@ -1804,7 +1804,7 @@ next_it:    ;
             if(n_type.is_aggregate() || n_type.is_class() || n_type.is_array())
             {   // Field or Index designators can appear
                 ObjectList<Node*> init_exprs = walk(n.get_symbol().get_value());
-                if(init_exprs.empty())
+                if (init_exprs.empty())
                 {   // do nothing: The Object Init is not initialized
                     return ObjectList<Node*>();
                 }
@@ -1819,36 +1819,44 @@ next_it:    ;
                             ERROR_CONDITION(exit_parents.size() != 1,
                                              "More than one parent found for the exit node of an split_node ", 0);
                             Node* exit_parent = exit_parents[0];
-                            ObjectList<NBase> stmts = exit_parent->get_statements();
-                            ERROR_CONDITION(stmts.size() != 1, "More than one statement found in the last node of an split_node", 0);
-                            if(stmts[0].is<Nodecl::Assignment>())
-                            {   // struct A a = { .b = { .y = bar() } }  ->  b.y = bar() is Assignment created by visit::FieldDesignator
-                                Nodecl::Assignment ass = stmts[0].as<Nodecl::Assignment>();
-                                Nodecl::ClassMemberAccess new_lhs =
-                                    Nodecl::ClassMemberAccess::make(n_sym, ass.get_lhs().shallow_copy(),
-                                                                    /* member-form */ NBase::null(),
-                                                                    ass.get_type(), n.get_locus());
-                                NBase new_assign =
-                                    Nodecl::Assignment::make(new_lhs, ass.get_rhs().shallow_copy(), ass.get_type(), n.get_locus());
-                                exit_parent->set_statements(ObjectList<NBase>(1, new_assign));
-                            }
-                            else if(stmts[0].is<Nodecl::FieldDesignator>())
-                            {   // struct A a = { .x = bar() }            -> .x = bar() is FieldDesignator
-                                Nodecl::FieldDesignator fd = stmts[0].as<Nodecl::FieldDesignator>();
-                                Type t = fd.get_field().get_symbol().get_type();
-                                Nodecl::ClassMemberAccess new_lhs =
-                                    Nodecl::ClassMemberAccess::make(n_sym, fd.get_field().shallow_copy(),
-                                                                    /* member-form */ NBase::null(),
-                                                                    t, n.get_locus());
-                                NBase new_assign =
-                                    Nodecl::Assignment::make(new_lhs, fd.get_next().shallow_copy(), t, n.get_locus());
-                                exit_parent->set_statements(ObjectList<NBase>(1, new_assign));
-                            }
-                            else
-                            {   // struct B b = { bar() };
-                                // FIXME We should be recovering the field that is being modified and creating an assignment
+                            if (exit_parent->is_graph_node())
+                            {   // e.g., std::ifstream file(conf.confFileName.c_str());
                                 unnamed_member_initialization = true;
                                 continue;
+                            }
+                            else
+                            {
+                                ObjectList<NBase> stmts = exit_parent->get_statements();
+                                ERROR_CONDITION(stmts.size() != 1, "More than one statement found in the last node of an split_node", 0);
+                                if(stmts[0].is<Nodecl::Assignment>())
+                                {   // struct A a = { .b = { .y = bar() } }  ->  b.y = bar() is Assignment created by visit::FieldDesignator
+                                    Nodecl::Assignment ass = stmts[0].as<Nodecl::Assignment>();
+                                    Nodecl::ClassMemberAccess new_lhs =
+                                        Nodecl::ClassMemberAccess::make(n_sym, ass.get_lhs().shallow_copy(),
+                                                                        /* member-form */ NBase::null(),
+                                                                        ass.get_type(), n.get_locus());
+                                    NBase new_assign =
+                                        Nodecl::Assignment::make(new_lhs, ass.get_rhs().shallow_copy(), ass.get_type(), n.get_locus());
+                                    exit_parent->set_statements(ObjectList<NBase>(1, new_assign));
+                                }
+                                else if(stmts[0].is<Nodecl::FieldDesignator>())
+                                {   // struct A a = { .x = bar() }            -> .x = bar() is FieldDesignator
+                                    Nodecl::FieldDesignator fd = stmts[0].as<Nodecl::FieldDesignator>();
+                                    Type t = fd.get_field().get_symbol().get_type();
+                                    Nodecl::ClassMemberAccess new_lhs =
+                                        Nodecl::ClassMemberAccess::make(n_sym, fd.get_field().shallow_copy(),
+                                                                        /* member-form */ NBase::null(),
+                                                                        t, n.get_locus());
+                                    NBase new_assign =
+                                        Nodecl::Assignment::make(new_lhs, fd.get_next().shallow_copy(), t, n.get_locus());
+                                    exit_parent->set_statements(ObjectList<NBase>(1, new_assign));
+                                }
+                                else
+                                {   // struct B b = { bar() };
+                                    // FIXME We should be recovering the field that is being modified and creating an assignment
+                                    unnamed_member_initialization = true;
+                                    continue;
+                                }
                             }
                             _utils->_last_nodes = ObjectList<Node*>(1, *it);
                         }
@@ -1935,13 +1943,7 @@ next_it:    ;
         return visit_binary_node(n, n.get_offset_type(), n.get_designator());
     }
 
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepCommutative& n)
-    {
-        _utils->_pragma_nodes.top()._clauses.append(n);
-        return ObjectList<Node*>();
-    }
-
-    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepConcurrent& n)
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::Alloca& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
@@ -1960,6 +1962,114 @@ next_it:    ;
     }
 
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::CopyOut& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::Cost& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepCommutative& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepConcurrent& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepInPrivate& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepReduction& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepWeakCommutative& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepWeakInout& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepWeakIn& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepWeakOut& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::DepWeakReduction& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::Lint& n)
+    {
+        // Create the new graph node containing the lint statements
+        Node* lint_node = _pcfg->create_graph_node(_utils->_outer_nodes.top(), n, __OmpssLint);
+        _pcfg->connect_nodes(_utils->_last_nodes, lint_node);
+
+        Node* lint_entry = lint_node->get_graph_entry_node();
+        Node* lint_exit = lint_node->get_graph_exit_node();
+
+        // Traverse the statements of the current sections
+        _utils->_last_nodes = ObjectList<Node*>(1, lint_entry);
+        walk(n.get_statements());
+
+        lint_exit->set_id(++(_utils->_nid));
+        _pcfg->connect_nodes(_utils->_last_nodes, lint_exit);
+
+        // Set clauses info to the for node
+        PCFGPragmaInfo current_pragma;
+        _utils->_pragma_nodes.push(current_pragma);
+        _utils->_environ_entry_exit.push(std::pair<Node*, Node*>(lint_entry, lint_exit));
+        walk(n.get_environment());
+        lint_node->set_pragma_node_info(_utils->_pragma_nodes.top());
+        _utils->_pragma_nodes.pop();
+        _utils->_environ_entry_exit.pop();
+
+        _utils->_outer_nodes.pop();
+        _utils->_last_nodes = ObjectList<Node*>(1, lint_node);
+        return ObjectList<Node*>(1, lint_node);
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::LintAlloc& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::LintFree& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::LintVerified& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();
@@ -2024,6 +2134,12 @@ next_it:    ;
     }
 
     ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::TaskLabel& n)
+    {
+        _utils->_pragma_nodes.top()._clauses.append(n);
+        return ObjectList<Node*>();
+    }
+
+    ObjectList<Node*> PCFGVisitor::visit(const Nodecl::OmpSs::WeakReduction& n)
     {
         _utils->_pragma_nodes.top()._clauses.append(n);
         return ObjectList<Node*>();

@@ -146,10 +146,10 @@ namespace Optimizations {
     *   /  \                      / \    
     *  c   t1                    t1  t2
     *
-    * R51b : +                  -
+    * R51a : +                  -
     *      /   \              /   \
-    *     -     t2        => c     - 
-    *   /  \                      / \    
+    *     -     t2        => c     -
+    *   /  \                      / \
     *  c   t1                    t1  t2
     *
     * R51b : -                  +
@@ -158,6 +158,17 @@ namespace Optimizations {
     *   /  \                      / \    
     *  c   t1                    t1  t2
     *
+    * R51c : -                  +
+    *      /   \              /   \
+    *     +     c        => -c     +
+    *   /  \                      / \
+    *  t1   t2                   t1 t2
+    *
+    * R52 :  +                  +
+    *      /   \              /   \
+    *     +     +        => c+c    +
+    *   /  \   / \                / \
+    *  c   t1 c  t2              t1  t2
     */
     class LIBTL_CLASS ReduceExpressionVisitor : public Nodecl::ExhaustiveVisitor<void>
     {

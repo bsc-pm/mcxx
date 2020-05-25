@@ -1540,6 +1540,7 @@ AM_CONDITIONAL([BUILD_OPTIMIZATIONS], test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_AUTO_SCOPE],    test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_OMP_LINT],      test x$is_enabled_analysis = xyes)
 AM_CONDITIONAL([BUILD_TL_COMPLEXITY], test x$is_enabled_analysis = xyes)
+AM_CONDITIONAL([BUILD_OSS_LINT],      test x$is_enabled_analysis = xyes)
 
 CORRECTNESS_LOG_DIR=""
 
