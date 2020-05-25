@@ -136,7 +136,24 @@ namespace Analysis {
     NBase split_var_depending_on_usage_rec(NBase container, NBase contained)
     {
         NBase result;
-        if(contained.is<Nodecl::ArraySubscript>())
+        NBase contained_base = contained;
+        while (!Nodecl::Utils::structurally_equal_nodecls(container, contained_base))
+        {
+            if (contained_base.is<Nodecl::ArraySubscript>())
+            {
+                contained_base = contained_base.as<Nodecl::ArraySubscript>().get_subscripted().no_conv();
+            }
+            else if (contained_base.is<Nodecl::ClassMemberAccess>())
+            {
+                contained_base = contained_base.as<Nodecl::ClassMemberAccess>().get_lhs().no_conv();
+            }
+            else
+            {
+                internal_error("Unexpected contained element %s, in container %s.\n",
+                               contained_base.prettyprint().c_str(), container.prettyprint().c_str());
+            }
+        }
+        if(contained_base.is<Nodecl::ArraySubscript>())
         {   // Contained[...]
             // Get the 'container' and 'contained' accesses. If not a Range, transform it into a Range
             NBase ctr_subscript, ctd_subscript;
@@ -148,12 +165,12 @@ namespace Analysis {
             ERROR_CONDITION(!ctr_t.is_valid(), 
                             "Invalid type computed for container %s.\n", 
                             container.prettyprint().c_str());
-            Nodecl::List ctd_subscripts = contained.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
+            Nodecl::List ctd_subscripts = contained_base.as<Nodecl::ArraySubscript>().get_subscripts().as<Nodecl::List>();
             if(container.is<Nodecl::Analysis::RangeUnion>())
             {
                 NBase lhs = container.as<Nodecl::Analysis::RangeUnion>().get_lhs();
                 NBase rhs = container.as<Nodecl::Analysis::RangeUnion>().get_rhs();
-                result = split_var_depending_on_usage_rec(lhs, contained);  // Try whether the LHS contains 'contained'
+                result = split_var_depending_on_usage_rec(lhs, contained_base);  // Try whether the LHS contains 'contained'
                 if(Nodecl::Utils::structurally_equal_nodecls(result, lhs))  // if not, try with the RHS
                     result = split_var_depending_on_usage_rec(result, rhs);
             }
@@ -201,7 +218,7 @@ namespace Analysis {
                         {
                             WARNING_MESSAGE("Cannot split the multidimensional array access %s "
                                             "when its container expression is other than an array access to the less significant dimension\n",
-                                            contained.prettyprint().c_str(), container.prettyprint().c_str());
+                                            contained_base.prettyprint().c_str(), container.prettyprint().c_str());
                         }
                         return result;
                     }
@@ -279,7 +296,7 @@ namespace Analysis {
                     if(VERBOSE && !container.is<Nodecl::Symbol>())
                     {   // If 'container' is a symbol, then any subscripted 'contained' is for sure contained in 'container'
                         WARNING_MESSAGE("Analysis is assuming %s contains %s. This may not be correct.\n", 
-                                        container.prettyprint().c_str(), contained.prettyprint().c_str());
+                                        container.prettyprint().c_str(), contained_base.prettyprint().c_str());
                     }
                     result = Nodecl::Analysis::RangeUnion::make(
                         Nodecl::ArraySubscript::make(subscripted.shallow_copy(), 
@@ -297,12 +314,12 @@ namespace Analysis {
                 {
                     internal_error("Unexpected nodecl type %s when removing sub-object %s from object %s "
                                    "by using Analysis::Utils::range_sub method.\n", 
-                                   ast_print_node_type(range_subtraction.get_kind()), contained.prettyprint().c_str(), 
+                                   ast_print_node_type(range_subtraction.get_kind()), contained_base.prettyprint().c_str(),
                                                        container.prettyprint().c_str());
                 }
             }
         }
-        else if(contained.is<Nodecl::ClassMemberAccess>())
+        else if(contained_base.is<Nodecl::ClassMemberAccess>())
         {
             TL::Type ctr_t = container.get_type().no_ref();
             // We may have here a class or a pointer to a class
@@ -313,8 +330,8 @@ namespace Analysis {
             {   // struct t { ... }
                 // Compute the nest of members accessed by 'contained'
                 ObjectList<Symbol> ctd_nested_syms;
-                ctd_nested_syms.append(contained.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
-                NBase tmp = contained.as<Nodecl::ClassMemberAccess>().get_lhs();
+                ctd_nested_syms.append(contained_base.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
+                NBase tmp = contained_base.as<Nodecl::ClassMemberAccess>().get_lhs();
                 while(tmp.is<Nodecl::ClassMemberAccess>())
                 {
                     ctd_nested_syms.append(tmp.as<Nodecl::ClassMemberAccess>().get_member().get_symbol());
@@ -365,7 +382,7 @@ namespace Analysis {
                 if(VERBOSE)
                 {
                     WARNING_MESSAGE("Container %s, of contained %s, has no class type. Instead it is %s\n",
-                                    container.prettyprint().c_str(), contained.prettyprint().c_str(),
+                                    container.prettyprint().c_str(), contained_base.prettyprint().c_str(),
                                     print_declarator(ctr_t.get_internal_type()));
                 }
                 return result;
@@ -377,7 +394,7 @@ namespace Analysis {
             {
                 WARNING_MESSAGE("Unexpected type of nodecl '%s' when splitting object '%s' into different subobjects.\n"
                                 "ArraySubscript or ClassMemberAccess expected\n",
-                                ast_print_node_type(contained.get_kind()), contained.prettyprint().c_str());
+                                ast_print_node_type(contained.get_kind()), contained_base.prettyprint().c_str());
             }
         }
         return result;

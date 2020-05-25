@@ -199,6 +199,7 @@ typedef struct debug_options_tag
     char print_pcfg_full;
     char print_tdg;
     char tdg_to_json;
+    char print_dt;
     // Others
     char do_not_codegen;
     char show_template_packs;

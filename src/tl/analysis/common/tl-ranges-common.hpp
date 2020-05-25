@@ -57,6 +57,9 @@ namespace Utils {
     Nodecl::Range range_value_sub(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_mul(const Nodecl::Range& r, const NBase& v);
     Nodecl::Range range_value_div(const Nodecl::Range& r, const NBase& v);
+    Nodecl::Range range_value_div(const NBase& v, const Nodecl::Range& r);
+
+    void reduce_expression(Nodecl::NodeclBase& n);
 
     // ********************************* END Ranges arithmetic *********************************** //
     // ******************************************************************************************* //

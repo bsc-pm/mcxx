@@ -29,6 +29,7 @@
 
 #include <map>
 
+#include "tl-dom-tree.hpp"
 #include "tl-extensible-graph.hpp"
 #include "tl-induction-variables-data.hpp"
 #include "tl-task-dependency-graph.hpp"
@@ -91,13 +92,15 @@ namespace Analysis {
     private:
 
         // ************** Private attributes ************** //
+        DominatorTree* _dom_tree;
         Name_to_pcfg_map _pcfgs;
         Name_to_tdg_map _tdgs;
         ObjectList<NBase> _all_functions;
 
         bool _is_ompss_enabled;
         
-        bool _pcfg;                 //!<True when parallel control flow graph have bee build
+        bool _dom_tree_computed;    //!<True when dominator tree has been built
+        bool _pcfg;                 //!<True when parallel control flow graph has been built
 //         bool _constants_propagation;//!<True when constant propagation and constant folding have been applied
         bool _canonical;            //!<True when expressions canonicalization has been applied
         bool _use_def;              //!<True when use-definition chains have been calculated
@@ -147,10 +150,16 @@ namespace Analysis {
         AnalysisBase(bool is_ompss_enabled);
 
         // *** Getters *** //
+        DominatorTree* get_dom_tree() const;
         ObjectList<ExtensibleGraph*> get_pcfgs() const;
         ObjectList<TaskDependencyGraph*> get_tdgs() const;
         
         // *** Modifiers *** //
+
+        /*! This analysis creates the dominator tree (DT) of the whole ast
+         * \param ast Tree containing the code to construct the DT
+         */
+        void dominator_tree(const NBase& ast);
 
         /*!This analysis creates one Parallel Control Flow Graph per each function contained in \ast
          * If \ast contains no function, then the method creates a PCFG for the whole code in \ast
@@ -234,6 +243,10 @@ namespace Analysis {
         void print_tdg(std::string tdg_name);
 
         void tdgs_to_json(const ObjectList<TaskDependencyGraph*>& tdgs);
+
+        // ************** Getters and setters ************** //
+
+        ExtensibleGraph* get_pcfg_by_func_name(std::string name) const;
     };
 
     // ******* END class representing a Singleton object used for analysis purposes ******* //

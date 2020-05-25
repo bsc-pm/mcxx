@@ -516,6 +516,7 @@ connect_node:
             case __OmpSyncTarget:
             case __OmpTask:
             case __OmpWorkshare:
+            case __OmpssLint:
                 dot_graph += indent + "color=red4;\n" + indent +"style=bold;\n";
                 break;
             case __VectorCondExpr:

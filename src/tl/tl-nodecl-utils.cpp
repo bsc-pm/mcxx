@@ -427,9 +427,9 @@ namespace Nodecl
         {
             if(skip_conversion_nodes)
             {
-                if(nodecl_get_kind(n1) == NODECL_CONVERSION)
+                while(nodecl_get_kind(n1) == NODECL_CONVERSION)
                     n1 = nodecl_get_child(n1, 0);
-                if(nodecl_get_kind(n2) == NODECL_CONVERSION)
+                while(nodecl_get_kind(n2) == NODECL_CONVERSION)
                     n2 = nodecl_get_child(n2, 0);
 
                 // Optimization: We assume that inside a NODECL_CONVERSION

@@ -441,6 +441,7 @@ namespace Analysis {
         static Node* get_enclosing_task(Node* n);
         static bool task_encloses_task(Node* container, Node* contained);
         static bool node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks);
+        static bool node_contains_task_sync(Node* graph_node, Node* current);
         static Node* get_enclosing_control_structure(Node* node);
         static Node* get_task_creation_from_task(Node* task);
         static Node* get_task_from_task_creation(Node* task_creation);

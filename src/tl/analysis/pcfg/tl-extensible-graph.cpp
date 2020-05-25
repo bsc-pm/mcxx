@@ -1366,39 +1366,75 @@ namespace Analysis {
         return (enclosing_task == NULL ? false : true);
     }
 
-    static bool node_contains_tasks_rec(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
+    static void node_contains_tasks_rec(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
     {
-        bool result = false;
-        if(!current->is_visited_extgraph())
+        if (current->is_visited_extgraph())
+            return;
+
+        current->set_visited_extgraph(true);
+        if (current == graph_node->get_graph_exit_node())
+            return;
+
+        if (current->is_omp_task_creation_node())
         {
-            current->set_visited_extgraph(true);
-            if(current != graph_node->get_graph_exit_node())
+            tasks.insert(current);
+        }
+        else
+        {
+            if (current->is_graph_node())
             {
-                // Insert current in the list of tasks if it is a task node
-                if(current->is_omp_task_creation_node())
-                {
-                    result = true;
-                    tasks.insert(current);
-                }
+                node_contains_tasks_rec(graph_node, current->get_graph_entry_node(), tasks);
+            }
 
-                if(current->is_graph_node())
-                    result = node_contains_tasks_rec(graph_node, current->get_graph_entry_node(), tasks) || result;
-
-                if(current != graph_node)
-                {
-                    ObjectList<Node*> children = current->get_children();
-                    for(ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
-                        if(!(*it)->is_omp_task_node() && !(*it)->is_omp_async_target_node())
-                            result = node_contains_tasks_rec(graph_node, *it, tasks) || result;
-                }
+            if (current != graph_node)
+            {
+                ObjectList<Node*> children = current->get_children();
+                for (ObjectList<Node*>::iterator it = children.begin(); it != children.end(); ++it)
+                    if (!(*it)->is_omp_task_node() && !(*it)->is_omp_async_target_node())
+                        node_contains_tasks_rec(graph_node, *it, tasks);
             }
         }
-        return result;
     }
 
     bool ExtensibleGraph::node_contains_tasks(Node* graph_node, Node* current, ObjectList<Node*>& tasks)
     {
-        bool res = node_contains_tasks_rec(graph_node, current, tasks);
+        node_contains_tasks_rec(graph_node, current, tasks);
+        ExtensibleGraph::clear_visits_extgraph(current);
+        return (tasks.size() > 0);
+    }
+
+    static bool node_contains_task_sync_rec(Node* graph_node, Node* current)
+    {
+        if (current->is_visited_extgraph())
+            return false;
+
+        current->set_visited_extgraph(true);
+        if (current == graph_node->get_graph_exit_node())
+            return false;
+
+        bool result = (current->is_omp_taskwait_node()
+                || current->is_omp_barrier_graph_node()
+                || current->is_omp_task_creation_node());
+
+        if (!result)
+        {
+            if (current->is_graph_node())
+                result = node_contains_task_sync_rec(graph_node, current->get_graph_entry_node());
+
+            if (current != graph_node)
+            {
+                ObjectList<Node*> children = current->get_children();
+                for(ObjectList<Node*>::iterator it = children.begin(); it != children.end() && !result; ++it)
+                    result = node_contains_task_sync_rec(graph_node, *it);
+            }
+        }
+
+        return result;
+    }
+
+    bool ExtensibleGraph::node_contains_task_sync(Node* graph_node, Node* current)
+    {
+        bool res = node_contains_task_sync_rec(graph_node, current);
         ExtensibleGraph::clear_visits_extgraph(current);
         return res;
     }

@@ -28,6 +28,7 @@
 
 #include "cxx-cexpr.h"
 #include "tl-ranges-common.hpp"
+#include "tl-optimizations.hpp"
 #include "tl-expression-reduction.hpp"
 
 namespace TL {
@@ -1284,7 +1285,7 @@ namespace {
             return Nodecl::Analysis::Maximum::make(new_exprs, t);
         }
         else
-            return Nodecl::Add::make(n, v, t);
+            return Nodecl::Add::make(n.shallow_copy(), v.shallow_copy(), t);
     }
 
     Nodecl::Range range_value_add(const Nodecl::Range& r, const NBase& v)
@@ -1379,14 +1380,14 @@ namespace {
         else if (lb.is_constant() && v.is_constant())
             new_lb = const_value_to_nodecl(const_value_div(lb.get_constant(), v.get_constant()));
         else
-            new_lb = Nodecl::Div::make(lb, v, t);
+            new_lb = Nodecl::Div::make(lb.shallow_copy(), v.shallow_copy(), t);
         // compute the upper bound
         if (ub.is<Nodecl::Analysis::MinusInfinity>() || ub.is<Nodecl::Analysis::PlusInfinity>())
             new_ub = ub;
         else if (ub.is_constant() && v.is_constant())
             new_ub = const_value_to_nodecl(const_value_div(ub.get_constant(), v.get_constant()));
         else
-            new_ub = Nodecl::Div::make(ub, v, t);
+            new_ub = Nodecl::Div::make(ub.shallow_copy(), v.shallow_copy(), t);
         
         Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
 
@@ -1395,6 +1396,112 @@ namespace {
                       << " = " << result.prettyprint() << std::endl;
 
         return result;
+    }
+
+    Nodecl::Range range_value_div(const NBase& v, const Nodecl::Range& r)
+    {
+        NBase lb = r.get_lower();
+        NBase ub = r.get_upper();
+        Type t(lb.get_type());
+
+        NBase new_lb, new_ub;
+        // compute the lower bound
+        if (lb.is<Nodecl::Analysis::MinusInfinity>() || lb.is<Nodecl::Analysis::PlusInfinity>())
+            new_lb = lb;
+        else if (lb.is_constant() && v.is_constant())
+            new_lb = const_value_to_nodecl(const_value_div(v.get_constant(), lb.get_constant()));
+        else
+            new_lb = Nodecl::Div::make(v, lb, t);
+        // compute the upper bound
+        if (ub.is<Nodecl::Analysis::MinusInfinity>() || ub.is<Nodecl::Analysis::PlusInfinity>())
+            new_ub = ub;
+        else if (ub.is_constant() && v.is_constant())
+            new_ub = const_value_to_nodecl(const_value_div(v.get_constant(), ub.get_constant()));
+        else
+            new_ub = Nodecl::Div::make(v, ub, t);
+
+        Nodecl::Range result = Nodecl::Range::make(new_lb, new_ub, NBase(const_value_to_nodecl(zero)), t);
+
+        if (RANGES_DEBUG)
+            std::cerr << "        Range Value Division " << v.prettyprint() << " / " << r.prettyprint()
+                      << " = " << result.prettyprint() << std::endl;
+
+        return result;
+    }
+
+    struct RangesReductorVisitor : Nodecl::ExhaustiveVisitor<void>
+    {
+        void visit_post(const Nodecl::Add &n)
+        {
+            Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            Nodecl::NodeclBase new_n;
+            if (lhs.is<Nodecl::Range>())
+            {
+                if (rhs.is<Nodecl::Range>())
+                {
+                    new_n = range_addition(lhs, rhs);
+                }
+                else
+                {
+                    new_n = range_value_add(lhs.as<Nodecl::Range>(), rhs);
+                }
+            }
+            else if (rhs.is<Nodecl::Range>())
+            {
+                new_n = range_value_add(rhs.as<Nodecl::Range>(), lhs);
+            }
+            else if (lhs.is_constant() && rhs.is_constant())
+            {
+                new_n = NBase(const_value_to_nodecl(const_value_add(lhs.get_constant(), rhs.get_constant())));
+            }
+            else
+            {
+                new_n = n;
+            }
+
+            Optimizations::canonicalize_and_fold(new_n, /*fast_math*/ false);
+            n.replace(new_n);
+        }
+
+        void visit_post(const Nodecl::Div &n)
+        {
+            Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
+            Nodecl::NodeclBase new_n;
+            if (lhs.is<Nodecl::Range>())
+            {
+                if (rhs.is<Nodecl::Range>())
+                {
+                    new_n = range_division(lhs, rhs);
+                }
+                else
+                {
+                    new_n = range_value_div(lhs.as<Nodecl::Range>(), rhs);
+                }
+            }
+            else if (rhs.is<Nodecl::Range>())
+            {
+                new_n = range_value_div(lhs, rhs.as<Nodecl::Range>());
+            }
+            else if (lhs.is_constant() && rhs.is_constant())
+            {
+                new_n = NBase(const_value_to_nodecl(const_value_div(lhs.get_constant(), rhs.get_constant())));
+            }
+            else
+            {
+                new_n = n;
+            }
+
+            Optimizations::canonicalize_and_fold(new_n, /*fast_math*/ false);
+            n.replace(new_n);
+        }
+    };
+
+    void reduce_expression(Nodecl::NodeclBase& n)
+    {
+        RangesReductorVisitor v;
+        v.walk(n);
     }
 
     // ******************************************************************************************* //

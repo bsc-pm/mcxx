@@ -111,6 +111,7 @@ namespace Analysis {
     GRAPH_TYPE(OmpSimdFunction) \
     GRAPH_TYPE(OmpSimdParallelFor) \
     GRAPH_TYPE(OmpSingle) \
+    GRAPH_TYPE(OmpssLint) \
     GRAPH_TYPE(OmpSyncTarget) \
     GRAPH_TYPE(OmpWorkshare) \
     GRAPH_TYPE(OmpTask) \

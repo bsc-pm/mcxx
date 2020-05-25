@@ -62,6 +62,7 @@ struct debug_flags_list_t;
 "print_pcfg_w_context", DEBUG_OPTION_REF(print_pcfg_w_context), "Prints PCFG in graphviz format with Context nodes"
 "print_scope", DEBUG_OPTION_REF(print_scope), "Prints scope of the translation unit"
 "print_tdg", DEBUG_OPTION_REF(print_tdg), "Prints TDG in graphviz format"
+"print_dt", DEBUG_OPTION_REF(print_dt), "Prints Dominator Tree in graphviz format"
 "ranges_verbose", DEBUG_OPTION_REF(ranges_verbose), "Prints debug information about range analysis"
 "show_template_packs", DEBUG_OPTION_REF(show_template_packs), "Adds a marker to show the extent of a template pack expansion"
 "stats_string_table", DEBUG_OPTION_REF(stats_string_table), "Prints statistics of the global string table"

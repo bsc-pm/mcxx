@@ -166,24 +166,57 @@ namespace Optimizations {
                 lhs = n.get_lhs();
                 rhs = n.get_rhs();
 
-                // R50a: 
-                // TODO: This rule is changing the order of the operations (as many other).
-                //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
-                if ((lhs.is<Nodecl::Add>()))
+                if (lhs.is<Nodecl::Add>())
                 {
-                    Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
-                    Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
-                    Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
-
-                    if (lhs_lhs.is_constant())
+                    // R52
+                    if (rhs.is<Nodecl::Add>())
                     {
-                        Nodecl::Add n_copy = n.shallow_copy().as<Nodecl::Add>();
-                        Nodecl::Add lhs_copy = lhs_add.shallow_copy().as<Nodecl::Add>();
+                        Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
+                        Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                        Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+                        Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
+                        Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs();
+                        Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
+                        if (lhs_lhs.is_constant() && rhs_lhs.is_constant())
+                        {
+                            Nodecl::NodeclBase c = Nodecl::Add::make(lhs_lhs.shallow_copy(), rhs_lhs.shallow_copy(), lhs_lhs.get_type());
+                            const_value_t* c_value = _calc.compute_const_value(c);
+                            if(!const_value_is_zero(c_value))
+                            {
+                                n.replace(Nodecl::Add::make(const_value_to_nodecl(c_value),
+                                                            Nodecl::Add::make(lhs_rhs.shallow_copy(),
+                                                                              rhs_rhs.shallow_copy(),
+                                                                              lhs_rhs.get_type()),
+                                                            lhs_lhs.get_type(),
+                                                            n.get_locus()));
+                            }
+                            else
+                            {
+                                n.replace(Nodecl::Add::make(lhs_rhs.shallow_copy(),
+                                                            rhs_rhs.shallow_copy(),
+                                                            lhs_rhs.get_type()));
+                            }
+                        }
+                    }
+                    // R50a
+                    // TODO: This rule is changing the order of the operations (as many other).
+                    //       Maybe it should be apply on floating point data only when fast-math or -O3 is enabled
+                    else
+                    {
+                        Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
+                        Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
+                        Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
 
-                        n_copy.get_lhs().replace(lhs_rhs.shallow_copy());
-                        lhs_copy.get_rhs().replace(n_copy);
+                        if (lhs_lhs.is_constant())
+                        {
+                            Nodecl::Add n_copy = n.shallow_copy().as<Nodecl::Add>();
+                            Nodecl::Add lhs_copy = lhs_add.shallow_copy().as<Nodecl::Add>();
 
-                        n.replace(lhs_copy);
+                            n_copy.get_lhs().replace(lhs_rhs.shallow_copy());
+                            lhs_copy.get_rhs().replace(n_copy);
+
+                            n.replace(lhs_copy);
+                        }
                     }
                 }
                 // R51a: 
@@ -382,8 +415,8 @@ namespace Optimizations {
         }
         else
         {
-            Nodecl::NodeclBase lhs = n.get_lhs();
-            Nodecl::NodeclBase rhs = n.get_rhs();
+            Nodecl::NodeclBase lhs = n.get_lhs().no_conv();
+            Nodecl::NodeclBase rhs = n.get_rhs().no_conv();
             if(lhs.is_constant())
             {
                 if (rhs.is_constant())
@@ -456,6 +489,14 @@ namespace Optimizations {
                             n.replace(lhs_rhs.shallow_copy());
                         }
                     }
+                    else
+                    {   // R51c
+                        Nodecl::NodeclBase new_lhs = const_value_to_nodecl(const_value_neg(rhs.get_constant()));
+                        Nodecl::NodeclBase new_rhs = Nodecl::Add::make(lhs.as<Nodecl::Add>().get_lhs().shallow_copy(),
+                                                                    lhs.as<Nodecl::Add>().get_rhs().shallow_copy(),
+                                                                    lhs.get_type(), lhs.get_locus());
+                        n.replace(Nodecl::Add::make(new_lhs, new_rhs, new_lhs.get_type(), n.get_locus()));
+                    }
                 }
                 else if(lhs.is<Nodecl::Minus>())
                 {
@@ -488,15 +529,14 @@ namespace Optimizations {
             {
                 n.replace(const_value_to_nodecl(const_value_get_zero(/*num_bytes*/ 4, /*sign*/1)));
             }
-            // R30
             else if(lhs.is<Nodecl::Add>() && rhs.is<Nodecl::Add>())
             {
                 Nodecl::Add lhs_add = lhs.as<Nodecl::Add>();
-                Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs();
-                Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs();
+                Nodecl::NodeclBase lhs_lhs = lhs_add.get_lhs().no_conv();
+                Nodecl::NodeclBase lhs_rhs = lhs_add.get_rhs().no_conv();
                 Nodecl::Add rhs_add = rhs.as<Nodecl::Add>();
-                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs();
-                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs();
+                Nodecl::NodeclBase rhs_lhs = rhs_add.get_lhs().no_conv();
+                Nodecl::NodeclBase rhs_rhs = rhs_add.get_rhs().no_conv();
                 
                 //R30a
                 if(Nodecl::Utils::structurally_equal_nodecls(lhs, rhs_lhs))

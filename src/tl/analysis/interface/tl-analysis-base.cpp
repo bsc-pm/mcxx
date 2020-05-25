@@ -47,13 +47,18 @@ namespace TL {
 namespace Analysis {
 
     AnalysisBase::AnalysisBase(bool is_ompss_enabled)
-            : _pcfgs(), _tdgs(), _all_functions(), _is_ompss_enabled(is_ompss_enabled),
-              _pcfg(false), /*_constants_propagation(false),*/ _canonical(false),
+            : _dom_tree(NULL), _pcfgs(), _tdgs(), _all_functions(), _is_ompss_enabled(is_ompss_enabled),
+              _dom_tree_computed(false), _pcfg(false), /*_constants_propagation(false),*/ _canonical(false),
               _use_def(false), _liveness(false), _loops(false),
               _reaching_definitions(false), _induction_variables(false),
               _range(false), _cyclomatic_complexity(false),
               _auto_scoping(false), _auto_deps(false), _tdg(false)
     {}
+
+    DominatorTree* AnalysisBase::get_dom_tree() const
+    {
+        return _dom_tree;
+    }
 
     ExtensibleGraph* AnalysisBase::get_pcfg(std::string name) const
     {
@@ -87,6 +92,18 @@ namespace Analysis {
         for (Name_to_tdg_map::const_iterator it = _tdgs.begin(); it != _tdgs.end(); ++it)
             result.insert(it->second);
         return result;
+    }
+
+    void AnalysisBase::dominator_tree(const NBase& ast)
+    {
+        // Generate the hashed name corresponding to the AST of the function
+        std::string dt_name = Utils::generate_hashed_name(ast);
+
+        if (VERBOSE)
+            std::cerr << "Dominator Tree (DT) '" << dt_name << "'" << std::endl;
+
+        _dom_tree = new DominatorTree(dt_name, ast);
+        _dom_tree_computed = true;
     }
 
     ExtensibleGraph* AnalysisBase::create_pcfg(
@@ -666,6 +683,21 @@ namespace Analysis {
     void AnalysisBase::tdgs_to_json(const ObjectList<TaskDependencyGraph*>& tdgs)
     {
         TaskDependencyGraph::print_tdgs_to_json(tdgs);
+    }
+
+    ExtensibleGraph* AnalysisBase::get_pcfg_by_func_name(std::string name) const
+    {
+        const ObjectList<ExtensibleGraph*>& pcfgs = get_pcfgs();
+        for (ObjectList<ExtensibleGraph*>::const_iterator it = pcfgs.begin(); it != pcfgs.end(); ++it)
+        {
+            Symbol pcfg_func_sym = (*it)->get_function_symbol();
+            if (pcfg_func_sym.is_valid())
+            {
+                if (pcfg_func_sym.get_name() == name)
+                    return *it;
+            }
+        }
+        return NULL;
     }
 }
 }

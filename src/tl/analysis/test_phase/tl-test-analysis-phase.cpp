@@ -68,6 +68,7 @@ namespace {
               _reaching_defs_enabled_str(""), _reaching_defs_enabled(false),
               _induction_vars_enabled_str(""), _induction_vars_enabled(false),
               _tdg_enabled_str(""), _tdg_enabled(false),
+              _etdg_enabled_str(""), _etdg_enabled(false),
               _range_analysis_enabled_str(""), _range_analysis_enabled(false),
               _cyclomatic_complexity_enabled_str(""), _cyclomatic_complexity_enabled(false),
               _ompss_mode_str(""), _ompss_mode_enabled(false),
