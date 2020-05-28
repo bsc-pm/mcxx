@@ -253,6 +253,7 @@ namespace TL { namespace OmpSs {
             void remove_function_task(Symbol sym);
 
             bool empty() const;
+            std::map<Symbol, FunctionTaskInfo> get_map() const;
 
             // Fortran
             void emit_module_info();

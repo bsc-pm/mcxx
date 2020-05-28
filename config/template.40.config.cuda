@@ -37,3 +37,5 @@ target_options[mpimfc_imcc_base] = no_sublink embed:partial_linking
 target_options[mpimfc_mcc_base] = no_sublink embed:partial_linking
 target_options[mpimcxx_mcc_base] = no_sublink embed:partial_linking
 target_options[mpimcxx_imcc_base] = no_sublink embed:partial_linking
+target_options[pgimcc] = no_sublink embed:partial_linking
+target_options[pgimcxx] = no_sublink embed:partial_linking

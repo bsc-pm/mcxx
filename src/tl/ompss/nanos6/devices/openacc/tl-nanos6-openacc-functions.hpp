@@ -1,5 +1,5 @@
 /*--------------------------------------------------------------------
-  (C) Copyright 2018-2020 Barcelona Supercomputing Center
+  (C) Copyright 2020-2020 Barcelona Supercomputing Center
                           Centro Nacional de Supercomputacion
   
   This file is part of Mercurium C/C++ source-to-source compiler.
@@ -24,35 +24,35 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
-#ifndef TL_NANOS6_OPENACC_DEVICE_HPP
-#define TL_NANOS6_OPENACC_DEVICE_HPP
+#ifndef TL_NANOS6_OPENACC_FUNCTIONS_HPP
+#define TL_NANOS6_OPENACC_FUNCTIONS_HPP
 
-#include "tl-nanos6-device.hpp"
+#include "tl-compilerphase.hpp"
+#include "tl-nodecl.hpp"
 
-namespace TL { namespace Nanos6 {
+namespace TL
+{
+namespace Nanos6
+{
 
-    class OpenACCDevice : public Device
-    {
-        public:
-            OpenACCDevice();
+//! This phase deals with the specific changes that OpenACC task functions
+// need.
+class OpenACCTasks : public TL::CompilerPhase
+{
+  private:
+  // Modify function definition (sym) to append a new parameter:
+  // int asyncQueue
+  // Will be applied to Symbol List provided by FunctionDefinitionsVisitor
+  // The FunctionCallsVisitor will then provide the apropriate variable in the call sites
+  void append_async_parameter(TL::Symbol &sym);
 
-            ~OpenACCDevice();
+  public:
+    OpenACCTasks();
 
-            //! This function returns a symbol that represents the device type id
-            TL::Symbol get_device_type_id() const;
+    virtual void run(DTO &dto);
+};
 
-            //! This function returns whether the current device requires arguments translation
-            bool requires_arguments_translation() const;
+} // namespace Nanos6
+} // namespace TL
 
-           Nodecl::NodeclBase compute_specific_task_body(
-                    Nodecl::NodeclBase task_body,
-                    const DirectiveEnvironment &env,
-                    Nodecl::NodeclBase unpacked_function_code,
-                    const TL::Scope &unpacked_inside_scope,
-                    Nodecl::Utils::SimpleSymbolMap &symbol_map);
-
-    };
-
-} }
-
-#endif // TL_NANOS6_OPENACC_DEVICE_HPP
+#endif

@@ -789,6 +789,11 @@ namespace TL { namespace OmpSs {
         return _map.empty();
     }
 
+    std::map<Symbol, FunctionTaskInfo> FunctionTaskSet::get_map() const
+    {
+        return _map;
+    }
+
     void FunctionTaskSet::emit_module_info()
     {
         // Fortran only

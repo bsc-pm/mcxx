@@ -1667,6 +1667,9 @@ AC_ARG_VAR([CRAYCXX], [Cray C++ Compiler])
 AC_ARG_VAR([CRAYFC], [Cray Fortran Compiler])
 AC_ARG_VAR([GPERF], [GNU gperf])
 AC_ARG_VAR([GIT], [git content tracker])
+AC_ARG_VAR([PGIFC], [PGI Fortran Compiler])
+AC_ARG_VAR([PGICC], [PGI C Compiler])
+AC_ARG_VAR([PGICXX], [PGI C++ Compiler])
 
 force_flex=no
 flex_good=no

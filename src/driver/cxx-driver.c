@@ -1414,15 +1414,21 @@ int parse_arguments(int argc, const char* argv[],
                 case OPTION_DISABLE_SIZEOF:
                     {
                         CURRENT_CONFIGURATION->disable_sizeof = 1;
-                        fprintf(stderr, "%s: option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n",
-                                compilation_process.exec_basename);
+                        if (from_command_line)
+                        {
+                            fprintf(stderr, "%s: option '--disable-sizeof' should be used only to work around problems. Please, report a bug.\n",
+                                    compilation_process.exec_basename);
+                        }
                         break;
                     }
                 case OPTION_DISABLE_FLOAT128_TOKEN:
                     {
                         CURRENT_CONFIGURATION->disable_float128_token = 1;
-                        fprintf(stderr, "%s: option '--disable-float128-token' should be used only to work around problems with PGI back-end. Please, report a bug.\n",
-                                compilation_process.exec_basename);
+                        if (from_command_line)
+                        {
+                            fprintf(stderr, "%s: option '--disable-float128-token' should be used only to work around problems with PGI back-end. Please, report a bug.\n",
+                                    compilation_process.exec_basename);
+                        }
                         break;
                     }
                 case OPTION_SET_ENVIRONMENT:
