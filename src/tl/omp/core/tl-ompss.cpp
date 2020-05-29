@@ -430,6 +430,15 @@ namespace TL { namespace OmpSs {
     {
     }
 
+    FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
+            ObjectList<TL::OpenMP::DependencyItem> parameter_info,
+            ObjectList<Nodecl::NodeclBase> parameter_red_info)
+        : _sym(sym),
+        _parameters(parameter_info),
+        _parameter_reductions(parameter_red_info)
+    {
+    }
+
     FunctionTaskInfo::FunctionTaskInfo(
             const FunctionTaskInfo& task_info,
             Nodecl::Utils::SimpleSymbolMap& translation_map,
@@ -511,6 +520,8 @@ namespace TL { namespace OmpSs {
 
             new_function_task_info.add_function_task_dependency(TL::OpenMP::DependencyItem(new_expr, dir));
         }
+
+        // TODO: reductions
 
 
         // Third, instantiate the if clause, the final clause and the priority clause
@@ -618,6 +629,11 @@ namespace TL { namespace OmpSs {
     ObjectList<TL::OpenMP::DependencyItem> FunctionTaskInfo::get_parameter_info() const
     {
         return _parameters;
+    }
+
+    ObjectList<Nodecl::NodeclBase> FunctionTaskInfo::get_parameter_red_info() const
+    {
+        return _parameter_reductions;
     }
 
     void FunctionTaskInfo::add_function_task_dependency(const TL::OpenMP::DependencyItem& dependence)
@@ -743,6 +759,7 @@ namespace TL { namespace OmpSs {
     {
         mw.write(_sym);
         mw.write(_parameters);
+        // TODO: reductions
         mw.write(_target_info);
         mw.write(_if_clause_cond_expr);
         mw.write(_final_clause_cond_expr);
@@ -760,6 +777,7 @@ namespace TL { namespace OmpSs {
     {
         mr.read(_sym);
         mr.read(_parameters);
+        // TODO: reductions
         mr.read(_target_info);
         mr.read(_if_clause_cond_expr);
         mr.read(_final_clause_cond_expr);

@@ -72,6 +72,7 @@ namespace TL { namespace OmpSs {
             void visit(const Nodecl::OpenMP::Private& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
             void visit(const Nodecl::OpenMP::Lastprivate& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
             void visit(const Nodecl::OpenMP::FirstLastprivate& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
+            void visit(const Nodecl::OpenMP::Reduction& n) { Nodecl::Utils::remove_from_enclosing_list(n); }
 
             void unhandled_node(const Nodecl::NodeclBase & n)
             {
@@ -410,6 +411,11 @@ namespace TL { namespace OmpSs {
         TL::ObjectList<Nodecl::NodeclBase> result_list;
 
         TL::ObjectList<TL::OpenMP::DependencyItem> task_dependences = function_task_info.get_parameter_info();
+        TL::ObjectList<Nodecl::NodeclBase> task_reductions = function_task_info.get_parameter_red_info();
+        if (!task_reductions.empty()) {
+            task_reductions = task_reductions.map<Nodecl::NodeclBase>(&Nodecl::NodeclBase::shallow_copy);
+            result_list.append(Nodecl::OpenMP::Reduction::make(Nodecl::List::make(task_reductions), locus));
+        }
 
         // This makes the report confusing, disable it
         bool old_omp_report = _base->emit_omp_report();
@@ -472,6 +478,12 @@ namespace TL { namespace OmpSs {
         _base->make_item_list<Nodecl::OmpSs::DepWeakCommutative>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_WEAK_COMMUTATIVE,
+                locus,
+                result_list);
+
+        _base->make_item_list<Nodecl::OmpSs::DepReduction>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_REDUCTION,
                 locus,
                 result_list);
 
