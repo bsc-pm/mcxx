@@ -4240,10 +4240,6 @@ void TaskProperties::create_task_implementations_info(
 
     TL::Symbol TaskProperties::create_duplicate_function()
     {
-        //Only meaningful for loop constructs!
-        if (!_env.task_is_worksharing)
-            return TL::Symbol::invalid();
-
         if (!_environment_capture.requires_duplication_function())
             return TL::Symbol::invalid();
 
