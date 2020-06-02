@@ -327,10 +327,23 @@ namespace TL { namespace OpenMP {
             concurrent_arguments,
             commutative_arguments,
             weakcommutative_arguments,
-            reduction_arguments;
+            reduction_arguments,
+            weakreduction_arguments;
 
-        ObjectList<Nodecl::NodeclBase> reduction_nodes;
+        ObjectList<Nodecl::NodeclBase> reduction_items;
+        ObjectList<Nodecl::NodeclBase> weakreduction_items;
         {
+
+            struct ReductionsClauses
+            {
+                ObjectList<Nodecl::NodeclBase>& reds_nodes;
+                ObjectList<Nodecl::NodeclBase>& reds_items;
+                const char* red_name;
+            } reds_clauses[] = {
+                { reduction_arguments, reduction_items, "reduction" },
+                { weakreduction_arguments, weakreduction_items, "weakreduction" },
+            };
+
             struct ReductionSymbolBuilder
             {
                 private:
@@ -352,19 +365,22 @@ namespace TL { namespace OpenMP {
                     }
             };
 
-            ObjectList<OpenMP::ReductionSymbol> reduction_references;
-
-            PragmaCustomClause red_clause =
-                pragma_line.get_clause("reduction");
-
-            // TL::ObjectList<TL::Symbol> nonlocal_symbols = Nodecl::Utils::get_nonlocal_symbols(statements);
-            ObjectList<TL::Symbol> nonlocal_symbols;
-            if (red_clause.is_defined())
+            for (ReductionsClauses* it = reds_clauses;
+                    it != (ReductionsClauses*) (&reds_clauses + 1);
+                    it++)
             {
-                get_reduction_symbols(pragma_line, red_clause, parsing_scope, nonlocal_symbols, reduction_references, function_sym);
+                PragmaCustomClause clause =
+                    pragma_line.get_clause(it->red_name);
+
+                ObjectList<OpenMP::ReductionSymbol> reduction_symbols;
+                if (clause.is_defined())
+                {
+                    TL::ObjectList<TL::Symbol> nonlocal_symbols;
+                    get_reduction_symbols(pragma_line, clause, parsing_scope, nonlocal_symbols, reduction_symbols, function_sym);
+                }
+                it->reds_items.append(reduction_symbols.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(pragma_line.get_locus())));
+                it->reds_nodes = reduction_symbols.map<Nodecl::NodeclBase>(&OpenMP::ReductionSymbol::get_reduction_expression);
             }
-            reduction_nodes = reduction_references.map<Nodecl::NodeclBase>(ReductionSymbolBuilder(pragma_line.get_locus()));
-            reduction_arguments = reduction_references.map<Nodecl::NodeclBase>(&OpenMP::ReductionSymbol::get_reduction_expression);
         }
 
         {
@@ -500,7 +516,8 @@ namespace TL { namespace OpenMP {
                 { concurrent_arguments,      DEP_OMPSS_CONCURRENT     },
                 { commutative_arguments,     DEP_OMPSS_COMMUTATIVE    },
                 { weakcommutative_arguments, DEP_OMPSS_WEAK_COMMUTATIVE    },
-                { reduction_arguments, DEP_OMPSS_REDUCTION    },
+                { reduction_arguments,       DEP_OMPSS_REDUCTION      },
+                { weakreduction_arguments,   DEP_OMPSS_WEAK_REDUCTION },
             };
 
             for (DependencesInformation* it = deps_info;
@@ -535,7 +552,12 @@ namespace TL { namespace OpenMP {
         }
         ERROR_CONDITION(_target_context.empty(), "This cannot be empty", 0);
 
-        TL::OmpSs::FunctionTaskInfo task_info(function_sym, dependence_list, reduction_nodes);
+        TL::OmpSs::FunctionTaskInfo task_info(
+            function_sym,
+            dependence_list,
+            reduction_items,
+            weakreduction_items);
+
         task_info.set_shared_closure(shared_vars);
 
         // Now gather target information

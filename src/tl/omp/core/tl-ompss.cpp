@@ -432,10 +432,12 @@ namespace TL { namespace OmpSs {
 
     FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
             ObjectList<TL::OpenMP::DependencyItem> parameter_info,
-            ObjectList<Nodecl::NodeclBase> parameter_red_info)
+            ObjectList<Nodecl::NodeclBase> parameter_red_info,
+            ObjectList<Nodecl::NodeclBase> parameter_weakred_info)
         : _sym(sym),
         _parameters(parameter_info),
-        _parameter_reductions(parameter_red_info)
+        _parameter_reductions(parameter_red_info),
+        _parameter_weakreductions(parameter_weakred_info)
     {
     }
 
@@ -634,6 +636,11 @@ namespace TL { namespace OmpSs {
     ObjectList<Nodecl::NodeclBase> FunctionTaskInfo::get_parameter_red_info() const
     {
         return _parameter_reductions;
+    }
+
+    ObjectList<Nodecl::NodeclBase> FunctionTaskInfo::get_parameter_weakred_info() const
+    {
+        return _parameter_weakreductions;
     }
 
     void FunctionTaskInfo::add_function_task_dependency(const TL::OpenMP::DependencyItem& dependence)
