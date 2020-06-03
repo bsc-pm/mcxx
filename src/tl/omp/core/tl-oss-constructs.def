@@ -36,3 +36,4 @@ OSS_DIRECTIVE("declare|reduction", declare_reduction, true)
 OSS_CONSTRUCT("lint", lint, true)
 
 OSS_CONSTRUCT_NOEND("taskloop", taskloop, true)
+OSS_CONSTRUCT_NOEND("taskloop|for", taskloop_for, true)

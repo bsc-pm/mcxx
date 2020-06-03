@@ -94,6 +94,12 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 walk(loop.get_loop());
              }
 
+             void visit(const Nodecl::OmpSs::TaskloopWorksharing &loop)
+             {
+                ++_num_task_related_pragmas;
+                walk(loop.get_loop());
+             }
+
              void visit(const Nodecl::ObjectInit& object_init)
              {
                 TL::Symbol sym = object_init.get_symbol();
@@ -198,6 +204,12 @@ namespace TL { namespace OpenMP { namespace Lowering {
              }
 
              void visit(const Nodecl::OmpSs::TaskWorksharing &loop)
+             {
+                loop.replace(loop.get_loop());
+                walk(loop);
+             }
+
+             void visit(const Nodecl::OmpSs::TaskloopWorksharing &loop)
              {
                 loop.replace(loop.get_loop());
                 walk(loop);
@@ -376,6 +388,15 @@ namespace TL { namespace OpenMP { namespace Lowering {
         walk(node.get_loop());
 
         //std::cerr << "loop: " << node.get_locus_str() << std::endl;
+        Nodecl::NodeclBase final_stmts = generate_final_stmts(node.get_loop());
+        _final_stmts_map.insert(std::make_pair(node, final_stmts));
+    }
+
+    void FinalStmtsGenerator::visit(const Nodecl::OmpSs::TaskloopWorksharing &node)
+    {
+        walk(node.get_loop());
+
+        //std::cerr << "taskloop worksharing: " << node.get_locus_str() << std::endl;
         Nodecl::NodeclBase final_stmts = generate_final_stmts(node.get_loop());
         _final_stmts_map.insert(std::make_pair(node, final_stmts));
     }
