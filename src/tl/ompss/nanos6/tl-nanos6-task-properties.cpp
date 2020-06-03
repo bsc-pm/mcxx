@@ -2601,7 +2601,7 @@ void TaskProperties::create_task_implementations_info(
             // Because a task worksharing it is just a plain task with a mandatory for inside
             // we need to handle these two cases.
             // FIXME: Can we make "task * for" behave like taskloop in OpenMP base instead?
-            if (_env.task_is_worksharing)
+            if (_env.task_is_worksharing && !task_is_taskloop())
             {
                 ERROR_CONDITION(!stmt.is<Nodecl::List>(), "Unexpected node\n", 0);
                 stmt = stmt.as<Nodecl::List>().front();

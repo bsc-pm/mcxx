@@ -50,6 +50,7 @@ namespace TL { namespace OpenMP  { namespace Lowering {
             FinalStmtsGenerator(bool ompss_mode, const std::string &in_final_fun_name);
 
             void visit(const Nodecl::OmpSs::TaskWorksharing &loop);
+            void visit(const Nodecl::OmpSs::TaskloopWorksharing &loop);
             void visit(const Nodecl::OmpSs::TaskCall &task_call);
             void visit(const Nodecl::OmpSs::TaskExpression &task_expr);
             void visit(const Nodecl::OpenMP::Task &task);

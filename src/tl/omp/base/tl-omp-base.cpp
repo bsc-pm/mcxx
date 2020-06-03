@@ -344,6 +344,7 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
     OSS_INVALID_DECLARATION_HANDLER(lint)
+    OSS_INVALID_DECLARATION_HANDLER(taskloop_for)
 
 #include "tl-omp-def-undef-macros.hpp"
 
@@ -708,7 +709,7 @@ namespace TL { namespace OpenMP {
                     || directive.get_pragma_line().get_clause("do").is_defined()))
         {
             // '#pragama oss task for' is handled as if it was a taskloop
-            oss_loop_handler_post(directive, /* is_worksharing */ true);
+            oss_loop_handler_post(directive, /* is_worksharing */ true, /* is_taskloop */ false);
             return;
         }
 
@@ -1535,12 +1536,22 @@ namespace TL { namespace OpenMP {
 
     void Base::oss_taskloop_handler_pre(TL::PragmaCustomStatement directive) { }
     void Base::oss_taskloop_handler_post(TL::PragmaCustomStatement directive) {
-      return oss_loop_handler_post(directive, /* is_worksharing */ false);
+      return oss_loop_handler_post(directive, /* is_worksharing */ false, /* is_taskloop */ true);
+    }
+
+    void Base::oss_taskloop_for_handler_pre(TL::PragmaCustomStatement directive) { }
+    void Base::oss_taskloop_for_handler_post(TL::PragmaCustomStatement directive)
+    {
+        return oss_loop_handler_post(
+            directive, /* is_worksharing */ true, /* is_taskloop */ true);
     }
 
     void Base::oss_loop_handler_post(TL::PragmaCustomStatement directive,
-        bool is_worksharing)
+        bool is_worksharing, bool is_taskloop)
     {
+        ERROR_CONDITION(!(is_worksharing || is_taskloop),
+            "Handling a loop clause that is neither taskloop nor task for", 0);
+
         Nodecl::NodeclBase statement = directive.get_statements();
         ERROR_CONDITION(!statement.is<Nodecl::List>(), "Invalid tree", 0);
         statement = statement.as<Nodecl::List>().front();
@@ -1682,7 +1693,14 @@ namespace TL { namespace OpenMP {
 
         Nodecl::NodeclBase stmt;
 
-        if (is_worksharing)
+        if (is_worksharing && is_taskloop)
+        {
+            stmt = Nodecl::OmpSs::TaskloopWorksharing::make(
+                    execution_environment,
+                    context,
+                    directive.get_locus());
+        }
+        else if (is_worksharing)
         {
             stmt = Nodecl::OmpSs::TaskWorksharing::make(
                     execution_environment,

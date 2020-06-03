@@ -2103,6 +2103,16 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
+    void Core::oss_taskloop_for_handler_pre(TL::PragmaCustomStatement construct)
+    {
+        taskloop_handler_pre(construct);
+    }
+
+    void Core::oss_taskloop_for_handler_post(TL::PragmaCustomStatement construct)
+    {
+        taskloop_handler_post(construct);
+    }
+
     void Core::single_handler_pre(TL::PragmaCustomStatement construct)
     {
         DataEnvironment& data_environment = _openmp_info->get_new_data_environment(construct);
@@ -2745,6 +2755,7 @@ namespace TL { namespace OpenMP {
     OSS_TO_OMP_DIRECTIVE_HANDLER(declare_reduction)
 
     OSS_INVALID_DECLARATION_HANDLER(lint)
+    OSS_INVALID_DECLARATION_HANDLER(taskloop_for)
 
 #include "tl-omp-def-undef-macros.hpp"
 

@@ -85,7 +85,7 @@ namespace TL
 
 
                 void oss_loop_handler_post(TL::PragmaCustomStatement directive,
-                        bool is_worksharing);
+                        bool is_worksharing, bool is_taskloop);
 
                 // Handler functions
 #define DECL_DIRECTIVE(_directive, _name, _pred, _func_prefix) \

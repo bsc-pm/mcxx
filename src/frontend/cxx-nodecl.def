@@ -722,6 +722,7 @@ parallel-statements: oss-specific-constructs
 
 # OmpSs-2 specific constructs
 oss-specific-constructs: NODECL_OMP_SS*TASK_WORKSHARING([environment]omp-exec-environment-seq-opt, [loop]statement)
+                       | NODECL_OMP_SS*TASKLOOP_WORKSHARING([environment]omp-exec-environment-seq-opt, [loop]statement)
 
 # register
 data-coordination-constructs : NODECL_OMP_SS*REGISTER([registered_set]expression-seq)
