@@ -1016,14 +1016,14 @@ src/tl/tl-lexer-tokens.hpp : $(PARSER_INFO_C) $(PARSER_INFO_CXX) $(PARSER_INFO_F
 	 echo "#define TL_LEXER_TOKENS_HPP" ; \
 	 echo "namespace TL {"  ; \
 	 echo "namespace TokensC {"  ; \
-	 $(SED) -n '/enum\s\+yytokentype/,/}/p' $(PARSER_INFO_C) ; \
+	 $(SED) -n '/^\s*enum\s\+yytokentype/,/};/p' $(PARSER_INFO_C) ; \
 	 echo "}"  ; \
 	 echo "namespace TokensCXX {" ; \
-	 $(SED) -n '/enum\s\+yytokentype/,/}/p' $(PARSER_INFO_CXX) ; \
+	 $(SED) -n '/^\s*enum\s\+yytokentype/,/};/p' $(PARSER_INFO_CXX) ; \
 	 echo "}"  ; \
 	 if [ -e "$(PARSER_INFO_FORTRAN)" ]; then \
 	    echo "namespace TokensFortran {"  ; \
-	    $(SED) -n '/enum\s\+yytokentype/,/}/p' $(PARSER_INFO_FORTRAN) ; \
+	    $(SED) -n '/^\s*enum\s\+yytokentype/,/};/p' $(PARSER_INFO_FORTRAN) ; \
 	    echo "}"  ; \
 	 fi; \
 	 echo "}";  \
