@@ -23936,12 +23936,13 @@ static void check_gcc_label_addr(AST expression,
 }
 
 static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
-        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
         char is_real,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     type_t* result_type = NULL;
+    type_t* expr_type = NULL;
     if (nodecl_expr_is_type_dependent(nodecl_expr))
     {
         // OK
@@ -23949,18 +23950,30 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
     }
     else
     {
-        type_t* t = no_ref(nodecl_get_type(nodecl_expr));
-        if (!is_complex_type(t))
+        expr_type = no_ref(nodecl_get_type(nodecl_expr));
+        if (!is_complex_type(expr_type) && !is_integral_type(expr_type)
+            && !is_floating_type(expr_type))
         {
-            error_printf_at(nodecl_get_locus(nodecl_expr), "operand of '%s' is not a complex type\n",
-                    is_real ? "__real__" : "__imag__");
+            error_printf_at(
+                nodecl_get_locus(nodecl_expr),
+                "operand of '%s' is of type '%s' which is not a complex or arithmetic type\n",
+                is_real ? "__real__" : "__imag__",
+                print_type_str(expr_type, decl_context));
 
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_expr);
             return;
         }
 
-        result_type = complex_type_get_base_type(t);
+        if (is_complex_type(expr_type))
+        {
+            result_type = complex_type_get_base_type(expr_type);
+        }
+        else
+        {
+            // GCC allows arithmetic types here
+            result_type = expr_type;
+        }
 
         if (is_lvalue_reference_type(nodecl_get_type(nodecl_expr)))
         {
@@ -23978,46 +23991,54 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
 
     if (is_lvalue_reference_type(result_type))
     {
-        const_value_t* cval = compute_glvalue_constant(nodecl_expr, decl_context);
-        if (cval != NULL
-                && const_value_is_object(cval))
+        ERROR_CONDITION(expr_type == NULL, "This should not happen", 0);
+        const_value_t *cval
+            = compute_glvalue_constant(nodecl_expr, decl_context);
+        if (cval != NULL)
         {
-            int num_accessors = const_value_object_get_num_accessors(cval) + 1;
-
-            subobject_accessor_t accessors[num_accessors];
-            scope_entry_t* base = const_value_object_get_base(cval);
-            const_value_object_get_all_accessors(cval, accessors);
-
-            // gcc represents _Complex like if they were a struct, so
-            // SUBOBJ_MEMBER seems appropiate here
-            accessors[num_accessors - 1].kind = SUBOBJ_MEMBER;
-            if (is_real)
+            if (const_value_is_object(cval) && is_complex_type(expr_type))
             {
-                accessors[num_accessors - 1].index = const_value_get_signed_int(0);
-            }
-            else
-            {
-                accessors[num_accessors - 1].index = const_value_get_signed_int(1);
-            }
+                int num_accessors
+                    = const_value_object_get_num_accessors(cval) + 1;
 
-            cval = const_value_make_object(base, num_accessors, accessors);
+                subobject_accessor_t accessors[num_accessors];
+                scope_entry_t *base = const_value_object_get_base(cval);
+                const_value_object_get_all_accessors(cval, accessors);
 
+                // gcc represents _Complex like if they were a struct, so
+                // SUBOBJ_MEMBER seems appropiate here
+                accessors[num_accessors - 1].kind = SUBOBJ_MEMBER;
+                if (is_real)
+                {
+                    accessors[num_accessors - 1].index
+                        = const_value_get_signed_int(0);
+                }
+                else
+                {
+                    accessors[num_accessors - 1].index
+                        = const_value_get_signed_int(1);
+                }
+
+                cval = const_value_make_object(base, num_accessors, accessors);
+            }
             nodecl_set_constant(*nodecl_output, cval);
         }
     }
     else
     {
-        if (nodecl_is_constant(nodecl_expr)
-                && const_value_is_complex(nodecl_get_constant(nodecl_expr)))
+        if (nodecl_is_constant(nodecl_expr))
         {
-            const_value_t* cval = nodecl_get_constant(nodecl_expr);
-            if (is_real)
+            const_value_t *cval = nodecl_get_constant(nodecl_expr);
+            if (const_value_is_complex(nodecl_get_constant(nodecl_expr)))
             {
-                cval = const_value_complex_get_real_part(cval);
-            }
-            else
-            {
-                cval = const_value_complex_get_imag_part(cval);
+                if (is_real)
+                {
+                    cval = const_value_complex_get_real_part(cval);
+                }
+                else
+                {
+                    cval = const_value_complex_get_imag_part(cval);
+                }
             }
             nodecl_set_constant(*nodecl_output, cval);
         }
