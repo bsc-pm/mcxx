@@ -1597,6 +1597,107 @@ SIMPLIFY_BUILTIN_FUN1(truncf, float, float);
 SIMPLIFY_BUILTIN_FUN1(trunc, double, double);
 SIMPLIFY_BUILTIN_FUN1(truncl, long_double, long_double);
 
+enum gcc_type_class
+{
+    no_type_class = -1,
+    void_type_class,
+    integer_type_class,
+    char_type_class,
+    enumeral_type_class,
+    boolean_type_class,
+    pointer_type_class,
+    reference_type_class,
+    offset_type_class,
+    real_type_class,
+    complex_type_class,
+    function_type_class,
+    method_type_class,
+    record_type_class,
+    union_type_class,
+    array_type_class,
+    string_type_class,
+    lang_type_class
+};
+
+static nodecl_t simplify_classify_type(scope_entry_t *entry UNUSED_PARAMETER,
+                                       int num_arguments,
+                                       nodecl_t *arguments)
+{
+    if (num_arguments != 1)
+        return nodecl_null();
+    type_t *t = no_ref(nodecl_get_type(arguments[0]));
+
+    if (nodecl_expr_is_type_dependent(arguments[0]) || is_dependent_type(t))
+        return nodecl_null();
+
+    enum gcc_type_class val = no_type_class;
+    if (t == NULL)
+    {
+        // do nothing
+    }
+    else if (is_void_type(t))
+    {
+        val = void_type_class;
+    }
+    else if (is_char_type(t))
+    {
+        val = char_type_class;
+    }
+    else if (is_bool_type(t))
+    {
+        val = boolean_type_class;
+    }
+    else if (is_enum_type(t))
+    {
+        val = enumeral_type_class;
+    }
+    else if (is_integral_type(t))
+    {
+        val = integer_type_class;
+    }
+    else if (is_floating_type(t))
+    {
+        val = real_type_class;
+    }
+    else if (is_lvalue_reference_type(t) || is_rvalue_reference_type(t))
+    {
+        val = reference_type_class;
+    }
+    else if (is_pointer_type(t))
+    {
+        val = pointer_type_class;
+    }
+    else if (is_union_type(t))
+    {
+        val = union_type_class;
+    }
+    else if (is_class_type(t))
+    {
+        val = record_type_class;
+    }
+    else if (is_array_type(t))
+    {
+        val = array_type_class;
+    }
+    else if (is_pointer_to_member_type(t))
+    {
+        val = offset_type_class;
+    }
+    else if (is_complex_type(t))
+    {
+        val = complex_type_class;
+    }
+    else if (is_function_type(t))
+    {
+        val = function_type_class;
+    }
+
+    if (val == no_type_class)
+        return nodecl_null();
+    else
+        return const_value_to_nodecl(const_value_get_signed_int(val));
+}
+
 #ifdef HAVE__BUILTIN_FPCLASSIFY
 static nodecl_t simplify_fpclassify(scope_entry_t* entry UNUSED_PARAMETER, int num_arguments, nodecl_t* arguments)
 {
@@ -2533,7 +2634,7 @@ DEF_GCC_BUILTIN        (BUILT_IN_BSWAP32, "bswap32", BT_FN_UINT32_UINT32, ATTR_C
 DEF_GCC_BUILTIN        (BUILT_IN_BSWAP64, "bswap64", BT_FN_UINT64_UINT64, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_EXT_LIB_BUILTIN    (BUILT_IN_CLEAR_CACHE, "__clear_cache", BT_FN_VOID_PTR_PTR, ATTR_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_LIB_BUILTIN        (BUILT_IN_CALLOC, "calloc", BT_FN_PTR_SIZE_SIZE, ATTR_MALLOC_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
-DEF_GCC_BUILTIN        (BUILT_IN_CLASSIFY_TYPE, "classify_type", BT_FN_INT_VAR, ATTR_LEAF_LIST, NO_EXPAND_FUN)
+DEF_GCC_BUILTIN        (BUILT_IN_CLASSIFY_TYPE, "classify_type", BT_FN_INT_VAR, ATTR_LEAF_LIST, simplify_classify_type)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZ, "clz", BT_FN_INT_UINT, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_clz)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZIMAX, "clzimax", BT_FN_INT_UINTMAX, ATTR_CONST_NOTHROW_LEAF_LIST, NO_EXPAND_FUN)
 DEF_GCC_BUILTIN        (BUILT_IN_CLZL, "clzl", BT_FN_INT_ULONG, ATTR_CONST_NOTHROW_LEAF_LIST, simplify_clzl)
