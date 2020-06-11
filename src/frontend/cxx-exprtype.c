@@ -3932,6 +3932,13 @@ static void compute_bin_operator_generic(
         {
             val = const_value_bin_fun(nodecl_get_constant(*lhs), 
                     nodecl_get_constant(*rhs));
+            if (val != NULL
+                && (is_integral_type(computed_type)
+                    || is_bool_type(computed_type))
+                && const_value_is_zero(val))
+            {
+                nodecl_set_type(*nodecl_output, get_zero_type(computed_type));
+            }
         }
 
         nodecl_set_constant(*nodecl_output, val);
@@ -6540,6 +6547,13 @@ static void compute_unary_operator_generic(
                 && nodecl_is_constant(*op))
         {
             val = const_value_unary_fun(nodecl_get_constant(*op));
+            if (val != NULL
+                && (is_integral_type(computed_type)
+                    || is_bool_type(computed_type))
+                && const_value_is_zero(val))
+            {
+                computed_type = get_zero_type(computed_type);
+            }
         }
 
         *nodecl_output = nodecl_unary_fun(
@@ -9809,7 +9823,11 @@ static type_t* composite_pointer_to_member(type_t* p1, type_t* p2, const locus_t
     return result;
 }
 
-static type_t* composite_pointer(type_t* p1, type_t* p2, const locus_t* locus)
+static type_t* composite_pointer(type_t* p1,
+    char p1_is_null_ptr,
+    type_t* p2,
+    char p2_is_null_ptr,
+    const locus_t* locus)
 {
     p1 = get_unqualified_type(p1);
     p2 = get_unqualified_type(p2);
@@ -9817,10 +9835,10 @@ static type_t* composite_pointer(type_t* p1, type_t* p2, const locus_t* locus)
     if (equivalent_types(p1, p2))
         return p1;
 
-    if (is_zero_type_or_nullptr_type(p1))
+    if (is_zero_type_or_nullptr_type(p1) || p1_is_null_ptr)
         return p2;
 
-    if (is_zero_type_or_nullptr_type(p2))
+    if (is_zero_type_or_nullptr_type(p2) || p2_is_null_ptr)
         return p1;
 
     cv_qualifier_t cv_qualif_1 = CV_NONE;
@@ -9985,10 +10003,29 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         {
             final_type = operand_types[0];
         }
-        else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
-                || is_pointer_and_zero)
+        else if ((is_pointer_type(operand_types[0])
+                  && is_pointer_type(operand_types[1]))
+                 || is_pointer_and_zero)
         {
-            final_type = composite_pointer(operand_types[0], operand_types[1], locus);
+            char second_op_is_null_ptr = 0;
+            if (nodecl_is_constant(second_op))
+            {
+                second_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[0])
+                      && const_value_is_zero(nodecl_get_constant(second_op));
+            }
+            char third_op_is_null_ptr = 0;
+            if (nodecl_is_constant(third_op))
+            {
+                third_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[1])
+                      && const_value_is_zero(nodecl_get_constant(third_op));
+            }
+            final_type = composite_pointer(operand_types[0],
+                                           second_op_is_null_ptr,
+                                           operand_types[1],
+                                           third_op_is_null_ptr,
+                                           locus);
         }
         else
         {
@@ -10358,10 +10395,29 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         {
             final_type = operand_types[0];
         }
-        else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
-                || is_pointer_and_zero)
+        else if ((is_pointer_type(operand_types[0])
+                  && is_pointer_type(operand_types[1]))
+                 || is_pointer_and_zero)
         {
-            final_type = composite_pointer(operand_types[0], operand_types[1], locus);
+            char second_op_is_null_ptr = 0;
+            if (nodecl_is_constant(second_op))
+            {
+                second_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[0])
+                      && const_value_is_zero(nodecl_get_constant(second_op));
+            }
+            char third_op_is_null_ptr = 0;
+            if (nodecl_is_constant(third_op))
+            {
+                third_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[1])
+                      && const_value_is_zero(nodecl_get_constant(third_op));
+            }
+            final_type = composite_pointer(operand_types[0],
+                                           second_op_is_null_ptr,
+                                           operand_types[1],
+                                           third_op_is_null_ptr,
+                                           locus);
         }
         else if ((is_pointer_to_member_type(operand_types[0])
                     && is_pointer_to_member_type(operand_types[1]))
