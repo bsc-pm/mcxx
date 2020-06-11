@@ -3932,6 +3932,13 @@ static void compute_bin_operator_generic(
         {
             val = const_value_bin_fun(nodecl_get_constant(*lhs), 
                     nodecl_get_constant(*rhs));
+            if (val != NULL
+                && (is_integral_type(computed_type)
+                    || is_bool_type(computed_type))
+                && const_value_is_zero(val))
+            {
+                nodecl_set_type(*nodecl_output, get_zero_type(computed_type));
+            }
         }
 
         nodecl_set_constant(*nodecl_output, val);
@@ -6540,6 +6547,13 @@ static void compute_unary_operator_generic(
                 && nodecl_is_constant(*op))
         {
             val = const_value_unary_fun(nodecl_get_constant(*op));
+            if (val != NULL
+                && (is_integral_type(computed_type)
+                    || is_bool_type(computed_type))
+                && const_value_is_zero(val))
+            {
+                computed_type = get_zero_type(computed_type);
+            }
         }
 
         *nodecl_output = nodecl_unary_fun(
@@ -9809,7 +9823,11 @@ static type_t* composite_pointer_to_member(type_t* p1, type_t* p2, const locus_t
     return result;
 }
 
-static type_t* composite_pointer(type_t* p1, type_t* p2, const locus_t* locus)
+static type_t* composite_pointer(type_t* p1,
+    char p1_is_null_ptr,
+    type_t* p2,
+    char p2_is_null_ptr,
+    const locus_t* locus)
 {
     p1 = get_unqualified_type(p1);
     p2 = get_unqualified_type(p2);
@@ -9817,10 +9835,10 @@ static type_t* composite_pointer(type_t* p1, type_t* p2, const locus_t* locus)
     if (equivalent_types(p1, p2))
         return p1;
 
-    if (is_zero_type_or_nullptr_type(p1))
+    if (is_zero_type_or_nullptr_type(p1) || p1_is_null_ptr)
         return p2;
 
-    if (is_zero_type_or_nullptr_type(p2))
+    if (is_zero_type_or_nullptr_type(p2) || p2_is_null_ptr)
         return p1;
 
     cv_qualifier_t cv_qualif_1 = CV_NONE;
@@ -9985,10 +10003,29 @@ static void check_conditional_expression_impl_nodecl_c(nodecl_t first_op,
         {
             final_type = operand_types[0];
         }
-        else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
-                || is_pointer_and_zero)
+        else if ((is_pointer_type(operand_types[0])
+                  && is_pointer_type(operand_types[1]))
+                 || is_pointer_and_zero)
         {
-            final_type = composite_pointer(operand_types[0], operand_types[1], locus);
+            char second_op_is_null_ptr = 0;
+            if (nodecl_is_constant(second_op))
+            {
+                second_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[0])
+                      && const_value_is_zero(nodecl_get_constant(second_op));
+            }
+            char third_op_is_null_ptr = 0;
+            if (nodecl_is_constant(third_op))
+            {
+                third_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[1])
+                      && const_value_is_zero(nodecl_get_constant(third_op));
+            }
+            final_type = composite_pointer(operand_types[0],
+                                           second_op_is_null_ptr,
+                                           operand_types[1],
+                                           third_op_is_null_ptr,
+                                           locus);
         }
         else
         {
@@ -10358,10 +10395,29 @@ static void check_conditional_expression_impl_nodecl_cxx(nodecl_t first_op,
         {
             final_type = operand_types[0];
         }
-        else if ((is_pointer_type(operand_types[0]) && is_pointer_type(operand_types[1]))
-                || is_pointer_and_zero)
+        else if ((is_pointer_type(operand_types[0])
+                  && is_pointer_type(operand_types[1]))
+                 || is_pointer_and_zero)
         {
-            final_type = composite_pointer(operand_types[0], operand_types[1], locus);
+            char second_op_is_null_ptr = 0;
+            if (nodecl_is_constant(second_op))
+            {
+                second_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[0])
+                      && const_value_is_zero(nodecl_get_constant(second_op));
+            }
+            char third_op_is_null_ptr = 0;
+            if (nodecl_is_constant(third_op))
+            {
+                third_op_is_null_ptr
+                    = is_pointer_to_void_type(operand_types[1])
+                      && const_value_is_zero(nodecl_get_constant(third_op));
+            }
+            final_type = composite_pointer(operand_types[0],
+                                           second_op_is_null_ptr,
+                                           operand_types[1],
+                                           third_op_is_null_ptr,
+                                           locus);
         }
         else if ((is_pointer_to_member_type(operand_types[0])
                     && is_pointer_to_member_type(operand_types[1]))
@@ -23936,12 +23992,13 @@ static void check_gcc_label_addr(AST expression,
 }
 
 static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
-        const decl_context_t* decl_context UNUSED_PARAMETER,
+        const decl_context_t* decl_context,
         char is_real,
         const locus_t* locus,
         nodecl_t* nodecl_output)
 {
     type_t* result_type = NULL;
+    type_t* expr_type = NULL;
     if (nodecl_expr_is_type_dependent(nodecl_expr))
     {
         // OK
@@ -23949,18 +24006,30 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
     }
     else
     {
-        type_t* t = no_ref(nodecl_get_type(nodecl_expr));
-        if (!is_complex_type(t))
+        expr_type = no_ref(nodecl_get_type(nodecl_expr));
+        if (!is_complex_type(expr_type) && !is_integral_type(expr_type)
+            && !is_floating_type(expr_type))
         {
-            error_printf_at(nodecl_get_locus(nodecl_expr), "operand of '%s' is not a complex type\n",
-                    is_real ? "__real__" : "__imag__");
+            error_printf_at(
+                nodecl_get_locus(nodecl_expr),
+                "operand of '%s' is of type '%s' which is not a complex or arithmetic type\n",
+                is_real ? "__real__" : "__imag__",
+                print_type_str(expr_type, decl_context));
 
             *nodecl_output = nodecl_make_err_expr(locus);
             nodecl_free(nodecl_expr);
             return;
         }
 
-        result_type = complex_type_get_base_type(t);
+        if (is_complex_type(expr_type))
+        {
+            result_type = complex_type_get_base_type(expr_type);
+        }
+        else
+        {
+            // GCC allows arithmetic types here
+            result_type = expr_type;
+        }
 
         if (is_lvalue_reference_type(nodecl_get_type(nodecl_expr)))
         {
@@ -23978,46 +24047,54 @@ static void check_nodecl_gcc_real_or_imag_part(nodecl_t nodecl_expr,
 
     if (is_lvalue_reference_type(result_type))
     {
-        const_value_t* cval = compute_glvalue_constant(nodecl_expr, decl_context);
-        if (cval != NULL
-                && const_value_is_object(cval))
+        ERROR_CONDITION(expr_type == NULL, "This should not happen", 0);
+        const_value_t *cval
+            = compute_glvalue_constant(nodecl_expr, decl_context);
+        if (cval != NULL)
         {
-            int num_accessors = const_value_object_get_num_accessors(cval) + 1;
-
-            subobject_accessor_t accessors[num_accessors];
-            scope_entry_t* base = const_value_object_get_base(cval);
-            const_value_object_get_all_accessors(cval, accessors);
-
-            // gcc represents _Complex like if they were a struct, so
-            // SUBOBJ_MEMBER seems appropiate here
-            accessors[num_accessors - 1].kind = SUBOBJ_MEMBER;
-            if (is_real)
+            if (const_value_is_object(cval) && is_complex_type(expr_type))
             {
-                accessors[num_accessors - 1].index = const_value_get_signed_int(0);
-            }
-            else
-            {
-                accessors[num_accessors - 1].index = const_value_get_signed_int(1);
-            }
+                int num_accessors
+                    = const_value_object_get_num_accessors(cval) + 1;
 
-            cval = const_value_make_object(base, num_accessors, accessors);
+                subobject_accessor_t accessors[num_accessors];
+                scope_entry_t *base = const_value_object_get_base(cval);
+                const_value_object_get_all_accessors(cval, accessors);
 
+                // gcc represents _Complex like if they were a struct, so
+                // SUBOBJ_MEMBER seems appropiate here
+                accessors[num_accessors - 1].kind = SUBOBJ_MEMBER;
+                if (is_real)
+                {
+                    accessors[num_accessors - 1].index
+                        = const_value_get_signed_int(0);
+                }
+                else
+                {
+                    accessors[num_accessors - 1].index
+                        = const_value_get_signed_int(1);
+                }
+
+                cval = const_value_make_object(base, num_accessors, accessors);
+            }
             nodecl_set_constant(*nodecl_output, cval);
         }
     }
     else
     {
-        if (nodecl_is_constant(nodecl_expr)
-                && const_value_is_complex(nodecl_get_constant(nodecl_expr)))
+        if (nodecl_is_constant(nodecl_expr))
         {
-            const_value_t* cval = nodecl_get_constant(nodecl_expr);
-            if (is_real)
+            const_value_t *cval = nodecl_get_constant(nodecl_expr);
+            if (const_value_is_complex(nodecl_get_constant(nodecl_expr)))
             {
-                cval = const_value_complex_get_real_part(cval);
-            }
-            else
-            {
-                cval = const_value_complex_get_imag_part(cval);
+                if (is_real)
+                {
+                    cval = const_value_complex_get_real_part(cval);
+                }
+                else
+                {
+                    cval = const_value_complex_get_imag_part(cval);
+                }
             }
             nodecl_set_constant(*nodecl_output, cval);
         }
