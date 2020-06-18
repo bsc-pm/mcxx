@@ -37,6 +37,8 @@ OpenMP, OmpSs and OmpSs-2 applications:
 |craymcc              | Mercurium C compiler using cc (Cray C) as the backend |
 |craymcxx             | Mercurium C++ compiler using CC (Cray C++) as the backend |
 |craymfc              | Mercurium Fortran compiler using ftn (Cray Fortran) as the backend (Experimental) |
+|pgimcc               | Mercurium C compiler using pgcc (PGI C) as the backend |
+|pgimcxx              | Mercurium C++ compiler using pgc++ (PGI C++) as the backend |
 
 Vendor-specific drivers are only available if their compilers are found at
 configuration time. You can always disable them from being installed, see
@@ -45,3 +47,7 @@ Mercurium configure flags.
 Due to some unsolvable issues in the IBM XL Fortran frontend and in the Cray
 Fortran frontend, xlmfc and craymfc profiles are not currently usable to
 compile OpenMP/OmpSs/OmpSs-2 applications.
+
+PGI compilers are provided to be used for compiling OmpSs-2 + OpenACC applications.
+Refer to Nanos6 device tasks documentation for more details on how to use them
+in that context, as not all features are supported.

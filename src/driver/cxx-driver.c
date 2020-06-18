@@ -196,6 +196,7 @@
 "                           Optionally you can define a static \n" \
 "                           number of THREADS.\n" \
 "  --cuda                   Enables CUDA support in OmpSs/OmpSs-2\n" \
+"  --openacc                Enables OpenACC support in OmpSs-2\n" \
 "  --opencl                 Enables experimental support for OpenCL\n" \
 "  --opencl-build-opts=<options>\n" \
 "                           Options passed to OpenCL compiler\n" \
