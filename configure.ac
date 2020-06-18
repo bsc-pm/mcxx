@@ -448,14 +448,13 @@ then
 fi
 dnl --------------- END Cray Compilers ---------------------
 
-dnl --------------- PGI Compilers ---------------------
+dnl ----------------- PGI Compilers ------------------------
 AC_MSG_CHECKING([whether support for PGI Fortran/C/C++ compilers is enabled])
 AC_ARG_ENABLE([pgi-compilers],
   AS_HELP_STRING([--disable-pgi-compilers], [Disables support for PGI Fortran/C/C++ compilers (enabled by default)]),
   [ ], # enable_pgi_compilers=$enableval
   [ enable_pgi_compilers="yes"])
 AC_MSG_RESULT([$enable_pgi_compilers])
-
 
 PGIFC=
 PGICC=
@@ -466,7 +465,31 @@ then
    AC_CHECK_PROG([PGICC], [pgcc], [pgcc])
    AC_CHECK_PROG([PGICXX],[pgc++],[pgc++])
 fi
-dnl --------------- END Intel Compilers ---------------------
+
+# Check the case it isn't in the PATH, or we don't want to load the module (e.g. CTE-P9)
+if test x"$PGICXX" = x"" -o x"$PGICC" = x"" -o x"$PGIFC" = x"";
+then
+   AC_ARG_WITH([pgi-installation],
+     AS_HELP_STRING([--with-pgi-installation=prefix], [specify the installation prefix of PGI compilers]),
+     [ ac_cv_use_pgi_prefix=$withval ],
+     [ ac_cv_use_pgi_prefix="" ]
+   )
+   if test x"$ac_cv_use_pgi_prefix" != x"";
+   then
+      AC_PATH_PROG([PGIFC],  [pgf90], [], [ ${ac_cv_use_pgi_prefix}/bin ])
+      AC_PATH_PROG([PGICC],  [pgcc],  [], [ ${ac_cv_use_pgi_prefix}/bin ])
+      AC_PATH_PROG([PGICXX], [pgc++], [], [ ${ac_cv_use_pgi_prefix}/bin ])
+      # Checking return value of just 1 of them is enough
+      if test x"$PGICXX" != x"";
+      then
+         enable_pgi_compilers=yes
+      fi
+   else
+      enable_pgi_compilers=no
+   fi
+fi
+
+dnl ----------------- END PGI Compilers ------------------------
 
 dnl --------------------- Support for plain profiles for Intel Compilers -------------
 if test x"$ICC" != x -o x"$ICPC" != x -o x"$IFORT" != x;
