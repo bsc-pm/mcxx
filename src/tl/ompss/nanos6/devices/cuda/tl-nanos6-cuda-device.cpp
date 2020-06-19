@@ -296,19 +296,27 @@ Nodecl::NodeclBase CUDADevice::compute_specific_task_body(
 }
 
 void CUDADevice::root_unpacked_function(
+        const DirectiveEnvironment &env,
         TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code)
 {
-    _cuda_code.append(unpacked_function_code);
-
-    // The unpacked function should not be static neither inline
-    symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
-    symbol_entity_specs_set_is_inline(unpacked_function.get_internal_symbol(), 0);
-
-    if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
+    if (!env.task_is_taskcall // If it's an inline task
+            || env.ndrange.empty()) // or it's an outline task without the 'ndrange' clause
     {
-        // Force the unpacked function to have C external linkage (note that it may be called
-        // from C/Fortran but it will be always defined in CUDA).
-        symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
+        return Device::root_unpacked_function(env, unpacked_function, unpacked_function_code);
+    }
+    else {
+        _cuda_code.append(unpacked_function_code);
+
+        // The unpacked function should not be static neither inline
+        symbol_entity_specs_set_is_static(unpacked_function.get_internal_symbol(), 0);
+        symbol_entity_specs_set_is_inline(unpacked_function.get_internal_symbol(), 0);
+
+        if (IS_C_LANGUAGE || IS_FORTRAN_LANGUAGE)
+        {
+            // Force the unpacked function to have C external linkage (note that it may be called
+            // from C/Fortran but it will be always defined in CUDA).
+            symbol_entity_specs_set_linkage_spec(unpacked_function.get_internal_symbol(), "\"C\"");
+        }
     }
 }
 

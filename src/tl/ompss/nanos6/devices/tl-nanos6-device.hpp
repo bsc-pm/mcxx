@@ -64,6 +64,7 @@ namespace TL { namespace Nanos6 {
 
             //! Generic implementation: it appends the function code to the top level
             virtual void root_unpacked_function(
+                    const DirectiveEnvironment &env,
                     TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code);
 
     };
