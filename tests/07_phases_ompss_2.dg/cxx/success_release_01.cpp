@@ -1,8 +1,8 @@
 /*
 <testinfo>
 test_generator="config/mercurium-ompss-2"
-test_exec_fail=yes
-test_exec_faulty=yes
+test_ignore=yes
+test_ignore_reason="feature not supported by nanos6"
 </testinfo>
 */
 #include<assert.h>
