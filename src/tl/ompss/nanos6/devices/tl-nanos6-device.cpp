@@ -40,7 +40,9 @@ namespace TL { namespace Nanos6 {
         return Nodecl::Utils::deep_copy(task_body, unpacked_inside_scope, symbol_map);
     }
 
-void Device::root_unpacked_function(TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code)
+void Device::root_unpacked_function(
+    const DirectiveEnvironment &env,
+    TL::Symbol unpacked_function, Nodecl::NodeclBase unpacked_function_code)
 {
     Nodecl::Utils::append_to_top_level_nodecl(unpacked_function_code);
 }

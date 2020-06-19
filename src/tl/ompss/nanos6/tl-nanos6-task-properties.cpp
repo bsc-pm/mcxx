@@ -2524,7 +2524,7 @@ void TaskProperties::create_task_implementations_info(
                 unpacked_fun_code,
                 unpacked_fun_empty_stmt);
 
-        device->root_unpacked_function(unpacked_function, unpacked_fun_code);
+        device->root_unpacked_function(_env, unpacked_function, unpacked_fun_code);
 
         TL::Scope unpacked_fun_inside_scope = unpacked_function.get_related_scope();
         // Prepare deep copy and remember those parameters that need fixup
