@@ -667,6 +667,36 @@ namespace TL { namespace OpenMP {
         {
             TL::ObjectList<std::string> str_list = label_clause.get_tokenized_arguments();
 
+            bool old_syntax = true;
+            // This is a heuristic for compatibility. Doesn't work all the time
+            // but it will most of the time.
+            if (!str_list.empty()
+                && !str_list[0].empty()
+                && (str_list[0][0] == '"' || str_list[0][0] == '\''))
+            {
+                diagnostic_context_t *diag_ctx
+                    = diagnostic_context_new_buffered();
+                diagnostic_context_push(diag_ctx);
+                TL::ObjectList<Nodecl::NodeclBase> expr_list
+                    = label_clause.get_arguments_as_expressions();
+                diagnostic_context_pop_and_discard();
+
+                auto is_valid_expr = [](Nodecl::NodeclBase expr) {
+                    return expr.is_constant()
+                           && const_value_is_string(expr.get_constant());
+                };
+
+                if (expr_list.size() == 1 && is_valid_expr(expr_list[0]))
+                {
+                    char is_null_ended = 0;
+
+                    str_list.clear();
+                    str_list.push_back(const_value_string_unpack_to_string(
+                        expr_list[0].get_constant(), &is_null_ended));
+                    old_syntax = false;
+                }
+            }
+
             if (str_list.size() != 1)
             {
                 warn_printf_at(
@@ -675,6 +705,14 @@ namespace TL { namespace OpenMP {
             }
             else
             {
+                if (old_syntax)
+                {
+                    warn_printf_at(construct.get_locus(),
+                                   "deprecated use of label(%s) will be parsed "
+                                   "as label(\"%s\")\n",
+                                   str_list[0].c_str(),
+                                   str_list[0].c_str());
+                }
                 task_info.set_task_label(
                         Nodecl::OmpSs::TaskLabel::make(
                             str_list[0]));
