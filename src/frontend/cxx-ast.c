@@ -181,6 +181,7 @@ char ast_check_list_tree(const_AST root)
     DELETE(stack);
 
     return ok;
+#undef PUSH_BACK
 }
 
 #if 0
@@ -213,6 +214,75 @@ char ast_check_list_tree(const_AST a)
     return ast_check_list_tree(ASTSon0(a));
 }
 #endif
+
+/*
+  We used to have the usual recursive traversal here
+  but some big trees feature very deep recursion
+  which caused stack overflows.
+ */
+void ast_free(AST root)
+{
+    int stack_capacity = 1024;
+    int stack_length = 1;
+    AST *stack = NEW_VEC(AST, stack_capacity);
+
+    stack[0] = root;
+
+#define PUSH_BACK(child)                                           \
+    {                                                              \
+        if (stack_length == stack_capacity)                        \
+        {                                                          \
+            stack_capacity *= 2;                                   \
+            stack = NEW_REALLOC(AST, stack, stack_capacity); \
+        }                                                          \
+        stack_length++;                                            \
+        stack[stack_length - 1] = (child);                         \
+    }
+
+    while (stack_length > 0)
+    {
+        AST a = stack[stack_length - 1];
+        stack_length--;
+
+        if (a == NULL)
+            continue;
+
+        // Already visited. See below
+        if (__builtin_expect(((((intptr_t)a->parent) & 0x1) == 0x1), 0))
+            continue;
+
+        // Tag this node as visited to avoid infinite recursion under the
+        // presence of cycles (note that this works as long as AST pointers are
+        // at least aligned to two bytes)
+        a->parent = (struct AST_tag *)(((intptr_t)a->parent) | 0x1);
+
+        if (ast_get_kind(a) == AST_AMBIGUITY)
+        {
+            int i;
+            for (i = 0; i < ast_get_num_ambiguities(a); i++)
+            {
+                PUSH_BACK(ast_get_ambiguity(a, i));
+            }
+        }
+        else
+        {
+            int i;
+            for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
+            {
+                PUSH_BACK(ast_get_child(a, i));
+            }
+        }
+
+        DELETE(a->expr_info);
+        DELETE(a->children);
+        // Clear the node for safety
+        // __builtin_memset(a, 0, sizeof(*a));
+        DELETE(a);
+    }
+
+    DELETE(stack);
+#undef PUSH_BACK
+}
 
 static void ast_copy_one_node(AST dest, AST orig)
 {

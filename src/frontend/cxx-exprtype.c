@@ -21889,37 +21889,43 @@ static void compute_nodecl_braced_initializer_list(AST initializer_list,
     }
     else
     {
-        // Compute head (recursively)
-        nodecl_t nodecl_prev_list = nodecl_null();
-        compute_nodecl_braced_initializer_list(
-                ASTSon0(initializer_list),
-                decl_context,
-                &nodecl_prev_list);
-
-        if (!nodecl_is_null(nodecl_prev_list)
-                && nodecl_is_err_expr(nodecl_prev_list))
+        nodecl_t nodecl_init_list = nodecl_null();
+        AST it;
+        for_each_element(initializer_list, it)
         {
-            *nodecl_output = nodecl_prev_list;
-            return;
-        }
+            if (ASTKind(it) == AST_AMBIGUITY)
+            {
+                nodecl_t nodecl_tmp_list = nodecl_null();
+                compute_nodecl_braced_initializer_list(
+                    it, decl_context, &nodecl_tmp_list);
+                if (nodecl_is_err_expr(nodecl_tmp_list))
+                {
+                    *nodecl_output = nodecl_tmp_list;
+                    return;
+                }
+                nodecl_init_list
+                    = nodecl_concat_lists(nodecl_init_list, nodecl_tmp_list);
+                continue;
+            }
 
-        // Compute current
-        nodecl_t nodecl_current = nodecl_null();
-        compute_nodecl_initializer_clause(
-                ASTSon1(initializer_list),
+            AST current_initializer = ASTSon1(it);
+            nodecl_t nodecl_current = nodecl_null();
+            compute_nodecl_initializer_clause(
+                current_initializer,
                 decl_context,
                 /* preserve_top_level_parentheses */ 0,
                 &nodecl_current);
 
-        if (nodecl_is_err_expr(nodecl_current))
-        {
-            *nodecl_output = nodecl_current;
-            return;
-        }
+            if (nodecl_is_err_expr(nodecl_current))
+            {
+                *nodecl_output = nodecl_current;
+                return;
+            }
 
-        *nodecl_output = nodecl_append_to_list(
-                nodecl_prev_list,
-                nodecl_current);
+            nodecl_init_list
+                = nodecl_append_to_list(nodecl_init_list, nodecl_current);
+        }
+        *nodecl_output = nodecl_init_list;
     }
 }
 

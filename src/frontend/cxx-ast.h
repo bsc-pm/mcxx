@@ -131,7 +131,8 @@ LIBMCXX_EXTERN char ast_check(const_AST a);
 // Special checker for list trees (invoked also by ast_check above)
 LIBMCXX_EXTERN char ast_check_list_tree(const_AST a);
 
-static inline void ast_free(AST a);
+// Frees tree.
+LIBMCXX_EXTERN void ast_free(AST a);
 
 // Gives a copy of all the tree but extended data is the same as original trees
 LIBMCXX_EXTERN AST ast_copy(const_AST a);
