@@ -458,44 +458,6 @@ static inline void ast_replace(AST dest, const_AST src)
     *dest = *src;
 }
 
-static inline void ast_free(AST a)
-{
-    if (a == NULL)
-        return;
-
-    // Already visited. See below
-    if (__builtin_expect(((((intptr_t)a->parent) & 0x1) == 0x1), 0))
-        return;
-
-    // Tag this node as visited to avoid infinite recursion under the presence
-    // of cycles (note that this works as long as AST pointers are at least
-    // aligned to two bytes)
-    a->parent = (struct AST_tag*)(((intptr_t)a->parent) | 0x1);
-
-    if (ast_get_kind(a) == AST_AMBIGUITY)
-    {
-        int i;
-        for (i = 0; i < ast_get_num_ambiguities(a); i++)
-        {
-            ast_free(ast_get_ambiguity(a, i));
-        }
-    }
-    else
-    {
-        int i;
-        for (i = 0; i < MCXX_MAX_AST_CHILDREN; i++)
-        {
-            ast_free(ast_get_child(a, i));
-        }
-    }
-
-    DELETE(a->expr_info);
-    DELETE(a->children);
-    // Clear the node for safety
-    // __builtin_memset(a, 0, sizeof(*a));
-    DELETE(a);
-}
-
 static inline void ast_replace_with_ambiguity(AST a, int n)
 {
     ERROR_CONDITION(n >= ast_get_num_ambiguities(a),
