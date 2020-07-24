@@ -1635,11 +1635,20 @@ namespace TL { namespace OpenMP {
         handle_already_analyzed_generic_clause<Nodecl::OpenMP::Priority>(
             "Its priority will be", directive, ds.get_priority_expr(), execution_environment);
 
-        handle_already_analyzed_generic_clause<Nodecl::OmpSs::Cost>(
-            "Its cost will be", directive, ds.get_cost_expr(), execution_environment);
-
         handle_already_analyzed_generic_clause<Nodecl::OmpSs::Onready>(
             "Its onready will be", directive, ds.get_onready_expr(), execution_environment);
+
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Cost>(
+                "cost", "Its cost will be",
+                directive, context, execution_environment);
+
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Stream>(
+                "stream", "Its stream will be",
+                directive, context, execution_environment);
+
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Node>(
+                "node", "Its cluster node will be",
+                directive, context, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
