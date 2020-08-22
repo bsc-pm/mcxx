@@ -1640,15 +1640,15 @@ namespace TL { namespace OpenMP {
 
         handle_generic_clause_with_one_argument<Nodecl::OmpSs::Cost>(
                 "cost", "Its cost will be",
-                directive, context, execution_environment);
+                directive, directive, execution_environment);
 
         handle_generic_clause_with_one_argument<Nodecl::OmpSs::Stream>(
                 "stream", "Its stream will be",
-                directive, context, execution_environment);
+                directive, directive, execution_environment);
 
         handle_generic_clause_with_one_argument<Nodecl::OmpSs::Node>(
                 "node", "Its cluster node will be",
-                directive, context, execution_environment);
+                directive, directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
