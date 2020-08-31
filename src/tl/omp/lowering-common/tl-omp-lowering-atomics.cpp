@@ -273,20 +273,20 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         critical_source
             << "{"
-            <<   type << " __oldval;"
-            <<   type << " __newval;"
+            <<   proper_int_type << " __oldval_int;"
+            <<   proper_int_type << " __newval_int;"
 
             <<   temporary
 
-
             <<   "do {"
-            <<      "__oldval = (" << lhs << ");"
-            <<      "__newval = __oldval " << op << " (" << rhs << ");"
-            <<      "__sync_synchronize();"
+            <<      type << "__oldval = *(" << type << " volatile *)&(" << lhs << ");"
+            <<      type << "__newval = __oldval " << op << " (" << rhs << ");"
+            <<      "__oldval_int = " << "(" << atomic_union << "){__oldval}.__addr;"
+            <<      "__newval_int = " << "(" << atomic_union << "){__newval}.__addr;"
             <<   "} while (!__sync_bool_compare_and_swap_" << bytes << "("
             <<                 "(" << proper_int_type << "*)&(" << lhs << "),"
-            <<                 "(" << atomic_union << "){__oldval}.__addr,"
-            <<                 "(" << atomic_union << "){__newval}.__addr));"
+            <<                 "__oldval_int,"
+            <<                 "__newval_int));"
             << "}"
             ;
 

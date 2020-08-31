@@ -4,7 +4,6 @@ test_generator=config/mercurium-omp
 </testinfo>
 */
 
-#if !defined(__ICC) || (__ICC >= 1700)
 #include <assert.h>
 #include <omp.h>
 
@@ -31,10 +30,3 @@ int main()
 
     return 0;
 }
-#else
-// ICC <17.0 seems to have precision issues with exact real representation
-int main()
-{
-    return 0;
-}
-#endif
