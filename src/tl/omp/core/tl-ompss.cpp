@@ -48,7 +48,7 @@ namespace TL {
 // This is the arrays with the OmpSs constrains
 const TL::OmpSs::FunctionTaskInfo::constrains_names_list_t
     TL::OmpSs::FunctionTaskInfo::_constrains_names
-        = { "cost", "stream", "cluster" };
+        = { "cost", "stream", "node" };
 
 namespace TL { namespace OmpSs {
 
