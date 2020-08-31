@@ -4475,7 +4475,7 @@ static void embed_files(void)
 
 #define MAX_EMBED_MODES 8
         int num_embed_modes_seen = 0;
-        int embed_modes[MAX_EMBED_MODES] = { 0 };
+        unsigned int embed_modes[MAX_EMBED_MODES] = { 0 };
         void *embed_mode_data[MAX_EMBED_MODES] = { 0 };
 
         int j;
@@ -4984,11 +4984,17 @@ static void extend_file_list_with_static_libraries(
                     char *name = NULL;
                     if (current_flag[2] == ':')
                     {
-                        asprintf(&name, "%s.so", &current_flag[3]);
+                        if (asprintf(&name, "%s.so", &current_flag[3]) < 0)
+                        {
+                            fatal_error("Out of memory\n");
+                        }
                     }
                     else
                     {
-                        asprintf(&name, "lib%s.so", &current_flag[2]);
+                        if (asprintf(&name, "lib%s.so", &current_flag[2]) < 0)
+                        {
+                            fatal_error("Out of memory\n");
+                        }
                     }
 
                     const char * dynamic_library = find_file_in_directories(
@@ -5008,11 +5014,17 @@ static void extend_file_list_with_static_libraries(
                 char *name = NULL;
                 if (current_flag[2] == ':')
                 {
-                    asprintf(&name, "%s.a", &current_flag[3]);
+                    if (asprintf(&name, "%s.a", &current_flag[3]) < 0)
+                    {
+                        fatal_error("Out of memory\n");
+                    }
                 }
                 else
                 {
-                    asprintf(&name, "lib%s.a", &current_flag[2]);
+                    if (asprintf(&name, "lib%s.a", &current_flag[2]) < 0)
+                    {
+                        fatal_error("Out of memory\n");
+                    }
                 }
 
                 const char * static_library = find_file_in_directories(

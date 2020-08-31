@@ -99,6 +99,7 @@ char embed_to_file(const char* dest_filename, int num_embed_files,
                 dir_path, 
                 DIR_SEPARATOR, 
                 give_basename(current_embed_file->filename));
+        dest_path[1023] = '\0';
 
         if (move_file(current_embed_file->filename, dest_path) != 0)
         {

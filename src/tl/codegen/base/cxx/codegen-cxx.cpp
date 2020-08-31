@@ -8591,8 +8591,8 @@ int CxxBase::get_rank_kind(node_t n, const std::string& text)
                 }
                 /* fall-through when text == "" */
             }
-            // This is a pointer to member
-        case NODECL_OFFSET:
+            // fall-through
+        case NODECL_OFFSET: // This is a pointer to member
 
         case NODECL_CXX_ARROW_PTR_MEMBER:
         case NODECL_CXX_DOT_PTR_MEMBER:

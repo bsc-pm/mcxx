@@ -40,8 +40,8 @@ struct bucket_str_tag
 } bucket_str_t;
 
 enum { MAX_BUCKET_SIZE = 76003 };
-const static int prime_set[] = { 5, 11, 23, 53, 131, 317, 787, 1951, 4877, 12163, 30403, MAX_BUCKET_SIZE };
-const static int last_prime = (sizeof(prime_set) / sizeof(prime_set[0])) - 1;
+static const int prime_set[] = { 5, 11, 23, 53, 131, 317, 787, 1951, 4877, 12163, 30403, MAX_BUCKET_SIZE };
+static const int last_prime = (sizeof(prime_set) / sizeof(prime_set[0])) - 1;
 
 #ifdef __GNUC__
   #if __GNUC__ == 4
@@ -298,8 +298,10 @@ STATIC_INLINE uint32_t Murmur3_32(const char* key)
 	switch(len & 3) {
 	case 3:
 		k1 ^= tail[2] << 16;
+		// fall-through
 	case 2:
 		k1 ^= tail[1] << 8;
+		// fall-through
 	case 1:
 		k1 ^= tail[0];
  

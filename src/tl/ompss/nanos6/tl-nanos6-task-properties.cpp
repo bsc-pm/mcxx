@@ -2035,8 +2035,8 @@ void TaskProperties::create_task_implementations_info(
         Nodecl::List list_stmts;
         if (compute_stmts_pre_fun_call_fun != NULL)
         {
-            TL::Scope outline_fun_inside_scope = c_forwarded_empty_stmt.retrieve_context();
-            (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope, list_stmts);
+            TL::Scope outline_fun_inside_scope_ = c_forwarded_empty_stmt.retrieve_context();
+            (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope_, list_stmts);
         }
 
         list_stmts.append(
