@@ -1,0 +1,46 @@
+! <testinfo>
+! test_generator=config/mercurium-fortran
+! compile_versions="mod use all"
+! test_FFLAGS_mod="-DWRITE_MOD"
+! test_FFLAGS_use="-DUSE_MOD"
+! test_FFLAGS_all="-DWRITE_MOD -DUSE_MOD"
+! </testinfo>
+
+#ifdef WRITE_MOD
+MODULE MOO
+  IMPLICIT NONE
+
+  TYPE T
+  CONTAINS
+    PROCEDURE, NOPASS :: PRINT_X => MY_PRINT_X
+    PROCEDURE, NOPASS :: RETURN_X_PLUS_ONE => MY_RETURN_X_PLUS_ONE
+  END TYPE T
+
+  CONTAINS
+
+     SUBROUTINE MY_PRINT_X(X)
+       IMPLICIT NONE
+       INTEGER :: X
+       PRINT *, X
+     END SUBROUTINE
+
+     FUNCTION MY_RETURN_X_PLUS_ONE(X)
+       IMPLICIT NONE
+       INTEGER :: X
+       INTEGER :: MY_RETURN_X_PLUS_ONE
+       MY_RETURN_X_PLUS_ONE =  X + 1
+     END FUNCTION
+END MODULE MOO
+#endif
+
+#ifdef USE_MOD
+PROGRAM MAIN
+  USE MOO
+  IMPLICIT NONE
+  TYPE(T) :: A
+
+  CALL A % PRINT_X(42)
+
+  IF (A % RETURN_X_PLUS_ONE(41) /= 42) STOP 1
+END PROGRAM MAIN
+#endif
