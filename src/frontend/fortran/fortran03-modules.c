@@ -1339,28 +1339,44 @@ static sqlite3_uint64 insert_type(sqlite3* handle, type_t* t)
     }
     else if (is_unnamed_class_type(t))
     {
-        scope_entry_list_t* members = class_type_get_nonstatic_data_members(t);
+        scope_entry_list_t* fields = class_type_get_nonstatic_data_members(t);
+        int num_fields = entry_list_size(fields);
 
-        int num_fields = entry_list_size(members);
+        scope_entry_list_t* procedures = class_type_get_member_functions(t);
+        int num_procedures = entry_list_size(procedures);
 
-        sqlite3_uint64 field_list[num_fields+1];
-        memset(field_list, 0, sizeof(field_list));
+        int num_components = num_fields + num_procedures;
+
+        sqlite3_uint64 components_list[num_components+1];
+        memset(components_list, 0, sizeof(components_list));
 
         int i = 0;
         scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(members);
+        for (it = entry_list_iterator_begin(fields);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
             scope_entry_t* field = entry_list_iterator_current(it);
 
-            field_list[i] = insert_symbol(handle, field);
+            components_list[i] = insert_symbol(handle, field);
             i++;
         }
         entry_list_iterator_free(it);
-        entry_list_free(members);
+        entry_list_free(fields);
 
-        result = insert_type_ref_to_list_symbols(handle, t, TKT_CLASS, 0, num_fields, field_list);
+        for (it = entry_list_iterator_begin(procedures);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* procedure = entry_list_iterator_current(it);
+
+            components_list[i] = insert_symbol(handle, procedure);
+            i++;
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(procedures);
+
+        result = insert_type_ref_to_list_symbols(handle, t, TKT_CLASS, 0, num_components, components_list);
     }
     else if (is_void_type(t))
     {
@@ -2195,9 +2211,9 @@ static int get_symbol(void *datum,
         type_t* class_type = get_actual_class_type((*result)->type_information);
         class_type_set_inner_context(class_type, class_context);
 
-        scope_entry_list_t* members = class_type_get_nonstatic_data_members(class_type);
         scope_entry_list_iterator_t* it = NULL;
-        for (it = entry_list_iterator_begin(members);
+        scope_entry_list_t* fields = class_type_get_nonstatic_data_members(class_type);
+        for (it = entry_list_iterator_begin(fields);
                 !entry_list_iterator_end(it);
                 entry_list_iterator_next(it))
         {
@@ -2210,7 +2226,23 @@ static int get_symbol(void *datum,
             field->decl_context = class_context;
         }
         entry_list_iterator_free(it);
-        entry_list_free(members);
+        entry_list_free(fields);
+
+        scope_entry_list_t* procedures = class_type_get_member_functions(class_type);
+        for (it = entry_list_iterator_begin(procedures);
+                !entry_list_iterator_end(it);
+                entry_list_iterator_next(it))
+        {
+            scope_entry_t* procedure = entry_list_iterator_current(it);
+
+            // Insert the component in the class context otherwise further lookups will fail
+            insert_entry(class_context->current_scope, procedure);
+
+            // Update field context
+            procedure->decl_context = class_context;
+        }
+        entry_list_iterator_free(it);
+        entry_list_free(procedures);
     }
 
     // This is a (top-level) module. Keep in the module symbol cache
