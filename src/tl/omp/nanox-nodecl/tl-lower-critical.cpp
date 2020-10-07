@@ -45,7 +45,9 @@ namespace TL { namespace Nanox {
 
             // Nanos locks are initialized to zero, so we can use common here
             global_lock_decl
-                << "__attribute__((common)) "
+                << "__attribute__(("
+                <<    (_lowering->commons_as_weaks() ? "weak" : "common")
+                <<")) "
                 << as_type(nanos_lock_t_name.get_user_defined_type())
                 << " " << lock_name << ";";
 

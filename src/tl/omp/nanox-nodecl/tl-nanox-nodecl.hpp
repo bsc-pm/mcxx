@@ -49,6 +49,7 @@ namespace TL { namespace Nanox {
             bool instrumentation_enabled() const;
             bool final_clause_transformation_disabled() const;
             bool firstprivates_always_by_reference() const;
+            bool commons_as_weaks() const;
 
             struct Flag
             {
@@ -100,6 +101,10 @@ namespace TL { namespace Nanox {
             std::string _firstprivates_always_references_str;
             bool _firstprivates_always_references;
             void set_firstprivates_always_references(const std::string& str);
+
+            std::string _commons_as_weaks_str;
+            bool _commons_as_weaks;
+            void set_commons_as_weaks(const std::string& str);
 
             void finalize_phase(Nodecl::NodeclBase global_node);
             void emit_nanos_requirements(Nodecl::NodeclBase global_node);
