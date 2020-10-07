@@ -49,7 +49,8 @@ namespace TL { namespace Nanox {
         _instrumentation_enabled(false),
         _nanos_debug_enabled(false),
         _final_clause_transformation_disabled(false),
-        _firstprivates_always_references(false)
+        _firstprivates_always_references(false),
+        _commons_as_weaks(false)
     {
         set_phase_name("Nanos++ lowering");
         set_phase_description("This phase lowers from Mercurium parallel IR into real code involving Nanos++ runtime interface");
@@ -88,6 +89,11 @@ namespace TL { namespace Nanox {
                 "For C/C++, passes firstprivates always by reference",
                 _firstprivates_always_references_str,
                 "0").connect(std::bind(&Lowering::set_firstprivates_always_references, this, std::placeholders::_1));
+
+        register_parameter("commons_as_weaks",
+                "Some compilers do not support __attribute__((common)) so __attribute__((weak)) might be useable for them",
+                _commons_as_weaks_str,
+                "0").connect(std::bind(&Lowering::set_commons_as_weaks, this, std::placeholders::_1));
     }
 
     void Lowering::run(DTO& dto)
@@ -161,6 +167,11 @@ namespace TL { namespace Nanox {
         parse_boolean_option("firstprivates_always_references", str, _firstprivates_always_references, "Assuming false.");
     }
 
+    void Lowering::set_commons_as_weaks(const std::string& str)
+    {
+        parse_boolean_option("commons_as_weaks", str, _commons_as_weaks, "Assuming false.");
+    }
+
     bool Lowering::nanos_debug_enabled() const
     {
         return _nanos_debug_enabled;
@@ -184,6 +195,11 @@ namespace TL { namespace Nanox {
     bool Lowering::firstprivates_always_by_reference() const
     {
         return _firstprivates_always_references;
+    }
+
+    bool Lowering::commons_as_weaks() const
+    {
+        return _commons_as_weaks;
     }
 
     void Lowering::emit_nanos_requirements(Nodecl::NodeclBase global_node)
@@ -243,17 +259,27 @@ namespace TL { namespace Nanox {
         }
         else
         {
+            Source common_or_weak;
+            if (_commons_as_weaks)
+            {
+                common_or_weak << "weak";
+            }
+            else
+            {
+                common_or_weak << "common";
+            }
+
             if (seen_task_with_priorities)
-                src << "__attribute__((common)) char nanos_need_priorities_;";
+                src << "__attribute__((" << common_or_weak << ")) char nanos_need_priorities_;";
 
             if (seen_opencl_task)
-                src << "__attribute__((common)) char ompss_uses_opencl;";
+                src << "__attribute__((" << common_or_weak << ")) char ompss_uses_opencl;";
 
             if (seen_cuda_task)
-                src << "__attribute__((common)) char ompss_uses_cuda;";
+                src << "__attribute__((" << common_or_weak << ")) char ompss_uses_cuda;";
 
             if (seen_gpu_cublas_handle)
-                src << "__attribute__((common)) char gpu_cublas_init;";
+                src << "__attribute__((" << common_or_weak << ")) char gpu_cublas_init;";
 
             // Nanos++ FPGA do not support this mechanism
         }
