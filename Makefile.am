@@ -166,7 +166,7 @@ CLEANFILES += lib/perish.o
 
 EXTRA_DIST += lib/perish.c
 lib/perish.o : lib/perish.c
-	$(CCBUILD_verbose)$(CC_FOR_BUILD) $(CFLAGS) -c -o $@ $(top_srcdir)/lib/perish.c $(DEFAULT_INCLUDES) \
+	$(CCBUILD_verbose)$(CC_FOR_BUILD) $(CFLAGS) -fPIC -c -o $@ $(top_srcdir)/lib/perish.c $(DEFAULT_INCLUDES) \
 	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
 
 
