@@ -602,7 +602,7 @@ src/frontend/cxx03.y : $(TPP) $(top_srcdir)/src/frontend/cxx03.y.in $(addprefix 
 src/frontend/cxx-parser-internal.h : src/frontend/cxx-parser.c
 if BISON_BUILDING
 src/frontend/cxx-parser.c : src/frontend/cxx03.y
-	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=src/frontend/cxx-parser-internal.h --report=all --output=src/frontend/cxx-parser.c src/frontend/cxx03.y
+	$(BISON_verbose)$(BISON) -pmcxx --debug --defines=src/frontend/cxx-parser-internal.h $(BISON_REPORTING) --output=src/frontend/cxx-parser.c src/frontend/cxx03.y
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it
@@ -636,7 +636,7 @@ src/frontend/c99.y : $(TPP) $(top_srcdir)/src/frontend/c99.y.in $(addprefix $(to
 src/frontend/c99-parser-internal.h : src/frontend/c99-parser.c
 if BISON_BUILDING
 src/frontend/c99-parser.c : src/frontend/c99.y
-	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=src/frontend/c99-parser-internal.h --report=all --output=src/frontend/c99-parser.c src/frontend/c99.y
+	$(BISON_verbose)$(BISON) -pmc99 --debug --defines=src/frontend/c99-parser-internal.h $(BISON_REPORTING) --output=src/frontend/c99-parser.c src/frontend/c99.y
 endif
 
 # These are obtained when invoking bison, if we write a rule like 'a b : d' it
@@ -876,7 +876,7 @@ EXTRA_DIST += src/frontend/fortran/fortran03-parser.c
 src/frontend/fortran/fortran03-parser-internal.h : src/frontend/fortran/fortran03-parser.c
 if BISON_BUILDING
 src/frontend/fortran/fortran03-parser.c : src/frontend/fortran/fortran03.y
-	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=src/frontend/fortran/fortran03-parser-internal.h --report=all --output=src/frontend/fortran/fortran03-parser.c src/frontend/fortran/fortran03.y
+	$(BISON_verbose)$(BISON) -pmf03 --debug --defines=src/frontend/fortran/fortran03-parser-internal.h $(BISON_REPORTING) --output=src/frontend/fortran/fortran03-parser.c src/frontend/fortran/fortran03.y
 endif
 
 if FLEX_BUILDING
@@ -3262,7 +3262,7 @@ src/driver/cxx-configfile-parser-internal.h : src/driver/cxx-configfile-parser.c
 
 src/driver/cxx-configfile-parser.c: $(srcdir)/src/driver/cxx-configfile-parser.y
 if BISON_BUILDING
-	$(BISON_verbose)$(BISON) -pconfigfile --debug --defines=src/driver/cxx-configfile-parser-internal.h --report=all --output=src/driver/cxx-configfile-parser.c $(srcdir)/src/driver/cxx-configfile-parser.y
+	$(BISON_verbose)$(BISON) -pconfigfile --debug --defines=src/driver/cxx-configfile-parser-internal.h $(BISON_REPORTING) --output=src/driver/cxx-configfile-parser.c $(srcdir)/src/driver/cxx-configfile-parser.y
 else
 	@echo "*** ERROR: file cxx-configfile-parser.y was modified but no suitable bison was found during configure ***"
 	@exit 1
