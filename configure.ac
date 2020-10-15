@@ -1699,6 +1699,7 @@ flex_good=no
 
 force_bison=no
 bison_good=no
+bison_reporting="--report=none"
 
 force_gperf=no
 gperf_good=no
@@ -1779,6 +1780,22 @@ then
           ]
   )
 
+  AC_ARG_ENABLE([bison-reporting],
+          AS_HELP_STRING([--enable-bison-reporting], [Use this when debugging bison grammars. This is disabled by default]),
+          [
+            if test x$enableval = xyes -o x$enableval = x;
+            then
+               bison_reporting="--report=all"
+            else if test x$enableval = xno;
+                 then
+                   bison_reporting="--report=none"
+                 else
+                     AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+                 fi
+            fi
+          ]
+  )
+
   AC_CHECK_PROG([BISON], [bison], [bison])
   if test x$BISON = x;
   then
@@ -1792,7 +1809,7 @@ then
           bison_good=no
           AC_MSG_ERROR(${bison_ver}[, this version is known to fail])
        ;;
-       x2.@<:@34567@:>@*|x3.@<:@0123456@:>@*)
+       x2.@<:@34567@:>@*|x3.@<:@01234567@:>@*)
           AC_MSG_RESULT([${bison_ver}])
           bison_good=yes
           ;;
@@ -1863,6 +1880,8 @@ then
 fi
 
 AC_SUBST([GPERF_LENGTH_TYPE])
+BISON_REPORTING="$bison_reporting"
+AC_SUBST([BISON_REPORTING])
 
 AM_CONDITIONAL([TPP_BUILDING], test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
 AM_CONDITIONAL([BISON_BUILDING], test x$bison_good = xyes)
