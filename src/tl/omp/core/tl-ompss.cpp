@@ -885,6 +885,20 @@ namespace TL { namespace OmpSs {
         }
     }
 
+    AssertInfo::AssertInfo()
+    {
+    }
+
+    void AssertInfo::add_assert_string(const std::string str)
+    {
+        list.push_back(str);
+    }
+
+    const std::vector<std::string> &AssertInfo::get_assert_list() const
+    {
+        return list;
+    }
+
     CopyItem::CopyItem(DataReference copy_expr, ItemDirection direction)
         : DataReference(copy_expr), _kind(direction)
     {

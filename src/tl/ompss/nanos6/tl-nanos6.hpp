@@ -67,6 +67,10 @@ namespace TL { namespace Nanos6 {
             bool _final_clause_transformation_disabled;
             void set_disable_final_clause_transformation(const std::string& str);
 
+            //! Generate the unique __attribute__((constructor)) assert
+            //! register function if does not exists and registers asserts
+            void create_constructor_register_asserts(
+                Nodecl::NodeclBase translation_unit, const std::vector<std::string> &list);
 
             Nodecl::List _extra_c_code;
             

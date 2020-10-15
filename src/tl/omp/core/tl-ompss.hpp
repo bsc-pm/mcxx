@@ -269,6 +269,19 @@ namespace TL { namespace OmpSs {
             void load_from_module(TL::Symbol module);
     };
 
+    // OmpSs-2 Assert string list
+    class LIBTL_CLASS AssertInfo : public TL::Object
+    {
+        private:
+            std::vector<std::string> list;
+
+        public:
+            AssertInfo ();
+
+            void add_assert_string(const std::string str);
+            const std::vector<std::string> &get_assert_list() const;
+    };
+
 } }
 
 #endif // TL_OMPSS_HPP
