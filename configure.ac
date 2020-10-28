@@ -832,7 +832,7 @@ AC_MSG_RESULT([$enable_nanox_cuda_device])
 
 
 nanox_supports_cuda=no
-if test x"$is_enabled_tl_omp_nanox" = x"yes";
+if test x"$is_enabled_tl_omp_nanox" = x"yes" -a x"$enable_nanox_cuda_device" = x"yes";
 then
     AC_CHECK_FILE([$nanox_include/nanos-gpu.h],[nanox_supports_cuda=yes])
     AC_MSG_CHECKING([whether Nanos++ was configured with CUDA support])
