@@ -3382,6 +3382,27 @@ void TaskProperties::create_task_implementations_info(
                 it != _env.reduction.end();
                 it++)
         {
+            if (IS_FORTRAN_LANGUAGE)
+            {
+                const ReductionItem& red = *it;
+                TL::Symbol reduced_sym(red.get_symbol());
+                TL::Type reduced_type = reduced_sym.get_type();
+                if (reduced_type.no_ref().is_array()
+                    && reduced_type.no_ref().array_requires_descriptor())
+                {
+                    error_printf_at(reduced_sym.get_locus(),
+                        "Invalid reduction type: array descriptor\n");
+                    continue;
+                }
+                if (reduced_type.no_ref().is_array()
+                    && reduced_type.no_ref().array_get_size().is_null())
+                {
+                    error_printf_at(reduced_sym.get_locus(),
+                        "Invalid reduction type: assumed-size array\n");
+                    continue;
+                }
+            }
+
             // 1.1. Obtain reduction function symbols
 
             TL::Symbol reduction_initializer_function_sym;
