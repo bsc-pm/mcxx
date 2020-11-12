@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-nanos6-interface.hpp"
 #include "tl-nanos6-smp-device.hpp"
 
 #include "tl-scope.hpp"
@@ -41,7 +42,7 @@ TL::Symbol SMPDevice::get_device_type_id() const
 
 bool SMPDevice::requires_arguments_translation() const
 {
-    return false;
+    return Interface::family_is_at_least("nanos6_reductions_api", 2);
 }
 
 } }

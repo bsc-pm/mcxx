@@ -434,15 +434,20 @@ namespace TL { namespace Nanos6 {
 
     void Lower::lower_task(const Nodecl::OpenMP::Task& node, const Nodecl::NodeclBase& serial_stmts)
     {
+        DirectiveEnvironment _env = node.get_environment();
+        ERROR_CONDITION(_env.device_names.size() > 1, "Unexpected device clause list\n", 0);
+        bool is_cuda_task = (*_env.device_names.begin() == "cuda");
+
         ERROR_CONDITION(!_phase->_final_clause_transformation_disabled
-                && serial_stmts.is_null(),
+                && serial_stmts.is_null() && !is_cuda_task,
                 "Invalid serial statements for a task", 0);
 
         Nodecl::OpenMP::Task task = node;
         Nodecl::NodeclBase final_stmts;
         Nodecl::NodeclBase serial_stmts_placeholder;
 
-        if (!_phase->_final_clause_transformation_disabled)
+        // CUDA tasks have no serial_stmts
+        if (!_phase->_final_clause_transformation_disabled && !is_cuda_task)
         {
             Scope in_final_scope =
                 new_block_context(task.retrieve_context().get_decl_context());
@@ -462,7 +467,8 @@ namespace TL { namespace Nanos6 {
         TaskProperties task_properties(task, final_stmts, _phase, this);
         handle_task_transformation(task, task_properties);
 
-        if (!_phase->_final_clause_transformation_disabled)
+        // CUDA tasks have no serial_stmts
+        if (!_phase->_final_clause_transformation_disabled && !is_cuda_task)
         {
             serial_stmts_placeholder.replace(final_stmts);
 

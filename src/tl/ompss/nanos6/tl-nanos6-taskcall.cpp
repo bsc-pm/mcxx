@@ -582,8 +582,14 @@ namespace TL { namespace Nanos6 {
         parent.replace(task_compound_stmt);
 
         Nodecl::NodeclBase serial_stmts;
+
+        DirectiveEnvironment _env = construct.get_environment();
+        ERROR_CONDITION(_env.device_names.size() > 1, "Unexpected device clause list\n", 0);
+        bool is_cuda_task = (*_env.device_names.begin() == "cuda");
+
         // If disabled, act normally
-        if (!_phase->_final_clause_transformation_disabled)
+        // If walking final stmts we may find a cuda task call. This has no final_stmts associated to
+        if (!_phase->_final_clause_transformation_disabled && !is_cuda_task)
         {
             std::map<Nodecl::NodeclBase, Nodecl::NodeclBase>::iterator it = _final_stmts_map.find(construct);
             ERROR_CONDITION(it == _final_stmts_map.end(), "Invalid serial statemtents", 0);

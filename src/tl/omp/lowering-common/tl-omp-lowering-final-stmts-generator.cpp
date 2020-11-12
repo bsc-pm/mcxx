@@ -24,6 +24,7 @@
   Cambridge, MA 02139, USA.
 --------------------------------------------------------------------*/
 
+#include "tl-omp-lowering-directive-environment.hpp"
 #include "tl-omp-lowering-final-stmts-generator.hpp"
 #include "tl-symbol-utils.hpp"
 
@@ -193,8 +194,18 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
              void visit(const Nodecl::OmpSs::TaskCall& task_call)
              {
-                task_call.replace(task_call.get_call());
-                walk(task_call);
+                DirectiveEnvironment _env = task_call.get_environment();
+
+                ERROR_CONDITION(_env.device_names.size() > 1, "Unexpected device clause list\n", 0);
+                bool is_cuda_task = (*_env.device_names.begin() == "cuda");
+
+                // Keep pragma for cuda tasks
+                if (!is_cuda_task) {
+                    task_call.replace(task_call.get_call());
+                    walk(task_call);
+                } else {
+                    walk(task_call.get_call());
+                }
              }
 
              void visit(const Nodecl::OpenMP::Taskloop& taskloop)
