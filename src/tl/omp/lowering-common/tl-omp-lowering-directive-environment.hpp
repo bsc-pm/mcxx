@@ -124,6 +124,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         bool task_is_taskcall;
         bool wait_clause;
         bool any_task_dependence;
+		bool noflush_clause;
 
         /* --------  Debug & profiling information  ------ */
         std::string task_label;
