@@ -41,7 +41,6 @@ const char *entry_points[] = {
     "nanos6_taskwait",
     "nanos6_user_lock",
     "nanos6_user_unlock",
-    "nanos6_get_reduction_storage1",
     NULL
 };
 
@@ -78,6 +77,16 @@ const char *multidimensional_entry_points[] =
         TL::OpenMP::Lowering::Utils::Fortran::fixup_entry_points(
                 entry_points, multidimensional_entry_points, nanos6_api_max_dimensions());
 
+        if (!Interface::family_is_at_least("nanos6_reductions_api", 2)) {
+            const char *reduction_entry_points[] = {
+                "nanos6_get_reduction_storage1",
+                NULL,
+            };
+            const char *empty[] = { NULL };
+
+            TL::OpenMP::Lowering::Utils::Fortran::fixup_entry_points(
+                    reduction_entry_points, empty, nanos6_api_max_dimensions());
+        }
 
         if (Interface::family_is_at_least("nanos6_loop_api", 2)) {
             const char *loop_entry_points[] = {
