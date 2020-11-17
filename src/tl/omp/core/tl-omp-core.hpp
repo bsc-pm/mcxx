@@ -143,13 +143,21 @@ namespace TL
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
 
+                Nodecl::NodeclBase update_clause(
+                        Nodecl::NodeclBase clause,
+                        Symbol function_symbol);
+
+                ObjectList<Nodecl::NodeclBase> update_clauses(
+                        const ObjectList<Nodecl::NodeclBase>& clauses,
+                        Symbol function_symbol);
+
                 void get_reduction_symbols(
                         TL::PragmaCustomLine construct,
                         PragmaCustomClause clause,
+                        TL::Scope scope,
                         const TL::ObjectList<TL::Symbol> &symbols_in_construct,
-                        DataEnvironment& data_environment,
                         ObjectList<ReductionSymbol>& sym_list,
-                        ObjectList<Symbol>& extra_symbols);
+                        const TL::Symbol &function_sym = TL::Symbol::invalid());
 
                 void get_reduction_explicit_attributes(
                         TL::PragmaCustomLine construct,

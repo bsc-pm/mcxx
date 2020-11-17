@@ -598,7 +598,8 @@ namespace TL { namespace OpenMP {
         {
             ObjectList<OpenMP::ReductionSymbol> reduction_references;
             get_reduction_symbols(construct, construct.get_clause(it->clause_name),
-                    nonlocal_symbols, data_environment, reduction_references, extra_symbols);
+                    construct.retrieve_context(),
+                    nonlocal_symbols, reduction_references);
 
             std::for_each(reduction_references.begin(), reduction_references.end(),
                     DataEnvironmentSetterReduction(data_environment, it->data_attr));

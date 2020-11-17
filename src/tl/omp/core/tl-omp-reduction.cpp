@@ -61,10 +61,10 @@ namespace TL { namespace OpenMP {
     void Core::get_reduction_symbols(
             TL::PragmaCustomLine construct,
             TL::PragmaCustomClause clause,
+            TL::Scope scope,
             const ObjectList<Symbol>& symbols_in_construct,
-            DataEnvironment& data_sharing_environment,
             ObjectList<ReductionSymbol>& sym_list,
-            ObjectList<Symbol>& extra_symbols)
+            const TL::Symbol &function_sym)
     {
         if (!clause.is_defined())
             return;
@@ -136,7 +136,10 @@ namespace TL { namespace OpenMP {
                     << pad_to_column(construct.get_column()) << variable
                     ;
 
-                Nodecl::NodeclBase var_tree = src.parse_expression(clause.get_pragma_line());
+                Nodecl::NodeclBase var_tree = src.parse_expression(scope);
+                // For task outline rewrite expression in terms of function params
+                if (function_sym.is_valid())
+                    var_tree = update_clause(var_tree, function_sym);
 
                 TL::Symbol var_sym;
                 TL::Type var_type;
@@ -303,8 +306,6 @@ namespace TL { namespace OpenMP {
                             var_sym.get_qualified_name().c_str(),
                             type_name);
                 }
-
-                add_extra_symbols(DataReference(var_tree), data_sharing_environment, extra_symbols);
             }
         }
     }

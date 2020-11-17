@@ -153,6 +153,8 @@ namespace TL { namespace OmpSs {
             Symbol _sym;
 
             ObjectList<TL::OpenMP::DependencyItem> _parameters;
+            ObjectList<Nodecl::NodeclBase> _parameter_reductions;
+            ObjectList<Nodecl::NodeclBase> _parameter_weakreductions;
             ObjectList<TL::Symbol> _shared_closure;
 
             TargetInfo _target_info;
@@ -177,6 +179,11 @@ namespace TL { namespace OmpSs {
             FunctionTaskInfo(Symbol sym,
                     ObjectList<TL::OpenMP::DependencyItem> parameter_info);
 
+            FunctionTaskInfo(Symbol sym,
+                    ObjectList<TL::OpenMP::DependencyItem> parameter_info,
+                    ObjectList<Nodecl::NodeclBase> parameter_red_info,
+                    ObjectList<Nodecl::NodeclBase> parameter_weakred_info);
+
             FunctionTaskInfo(
                     const FunctionTaskInfo& task_info,
                     Nodecl::Utils::SimpleSymbolMap& translation_map,
@@ -188,6 +195,8 @@ namespace TL { namespace OmpSs {
                     instantiation_symbol_map_t* instantiation_symbol_map);
 
             ObjectList<TL::OpenMP::DependencyItem> get_parameter_info() const;
+            ObjectList<Nodecl::NodeclBase> get_parameter_red_info() const;
+            ObjectList<Nodecl::NodeclBase> get_parameter_weakred_info() const;
 
             void add_function_task_dependency(const TL::OpenMP::DependencyItem& dep);
 
