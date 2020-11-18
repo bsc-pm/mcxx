@@ -5,11 +5,12 @@
 ! Reductions arrays outline 1
 
 !$OSS TASK REDUCTION(+: P)
-SUBROUTINE Q(P)
+SUBROUTINE Q(P, I)
     IMPLICIT NONE
-    INTEGER :: P
+    INTEGER :: P(10)
+    INTEGER :: I
 
-    P = P + 1
+    P(I) = P(I) + 1
 
 END SUBROUTINE Q
 
@@ -18,16 +19,16 @@ SUBROUTINE S(P)
     IMPLICIT NONE
     INTEGER :: P(10)
 
-    CALL Q(P(1))
-    CALL Q(P(2))
-    CALL Q(P(3))
-    CALL Q(P(4))
-    CALL Q(P(5))
-    CALL Q(P(6))
-    CALL Q(P(7))
-    CALL Q(P(8))
-    CALL Q(P(9))
-    CALL Q(P(10))
+    CALL Q(P, 1)
+    CALL Q(P, 2)
+    CALL Q(P, 3)
+    CALL Q(P, 4)
+    CALL Q(P, 5)
+    CALL Q(P, 6)
+    CALL Q(P, 7)
+    CALL Q(P, 8)
+    CALL Q(P, 9)
+    CALL Q(P, 10)
 
 END SUBROUTINE S
 
