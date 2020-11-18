@@ -111,6 +111,8 @@ namespace TL
 
                 std::shared_ptr<OmpSs::FunctionTaskSet> _function_task_set;
                 std::stack<OmpSs::TargetContext> _target_context;
+                // OmpSs-2 Assert string list
+                std::shared_ptr<OmpSs::AssertInfo> _ompss_assert_info;
 
                 void ompss_target_handler_pre(TL::PragmaCustomStatement ctr);
                 void ompss_target_handler_post(TL::PragmaCustomStatement ctr);

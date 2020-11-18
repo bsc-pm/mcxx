@@ -97,6 +97,16 @@ namespace TL { namespace OpenMP {
             _function_task_set = std::static_pointer_cast<OmpSs::FunctionTaskSet>(dto["openmp_task_info"]);
         }
 
+        if (!dto.get_keys().contains("ompss_assert_info"))
+        {
+            _ompss_assert_info = std::shared_ptr<OmpSs::AssertInfo>(new OmpSs::AssertInfo());
+            dto.set_object("ompss_assert_info", _ompss_assert_info);
+        }
+        else
+        {
+            _ompss_assert_info = std::static_pointer_cast<OmpSs::AssertInfo>(dto["ompss_assert_info"]);
+        }
+
         if (!dto.get_keys().contains("openmp_core_should_run"))
         {
             std::shared_ptr<TL::Bool> should_run(new TL::Bool(true));

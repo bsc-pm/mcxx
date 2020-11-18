@@ -951,6 +951,67 @@ namespace TL { namespace OpenMP {
         _openmp_info->pop_current_data_environment();
     }
 
+    void Core::oss_assert_handler_pre(TL::PragmaCustomDirective construct)
+    {
+        TL::Scope scope = construct.get_context_of_declaration().get_scope();
+        if (!IS_FORTRAN_LANGUAGE
+            && scope != Scope::get_global_scope())
+        {
+            error_printf_at(
+                construct.get_locus(),
+                "'assert' construct is only allowed in file scope\n");
+        }
+        else
+        {
+            PragmaCustomLine pragma_line = construct.get_pragma_line();
+            PragmaCustomParameter param = pragma_line.get_parameter();
+            if (!param.is_defined())
+            {
+                error_printf_at(construct.get_locus(),
+                        "expecting a parameter in 'assert' construct\n");
+            }
+            else
+            {
+                ObjectList<std::string> assert_str_list = param.get_tokenized_arguments();
+
+                diagnostic_context_t *diag_ctx
+                    = diagnostic_context_new_buffered();
+                    diagnostic_context_push(diag_ctx);
+                TL::ObjectList<Nodecl::NodeclBase> assert_expr_list
+                    = param.get_arguments_as_expressions();
+                diagnostic_context_pop_and_discard();
+
+                bool is_error = true;
+                auto is_valid_expr = [](Nodecl::NodeclBase expr) {
+                    return expr.is_constant()
+                           && const_value_is_string(expr.get_constant());
+                };
+
+                if (assert_expr_list.size() == 1 && is_valid_expr(assert_expr_list[0]))
+                {
+                    char is_null_ended = 0;
+
+                    assert_str_list.clear();
+                    assert_str_list.push_back(const_value_string_unpack_to_string(
+                        assert_expr_list[0].get_constant(), &is_null_ended));
+                    is_error = false;
+                }
+
+                if (is_error)
+                {
+                    error_printf_at(construct.get_locus(),
+                            "invalid parameter in 'assert' construct\n");
+                }
+                else
+                {
+                    _ompss_assert_info->add_assert_string(assert_str_list[0]);
+                }
+            }
+        }
+    }
+
+    void Core::oss_assert_handler_post(TL::PragmaCustomDirective construct) { }
+
     void Core::oss_lint_handler_pre(TL::PragmaCustomStatement construct)
     {
         TL::PragmaCustomLine pragma_line = construct.get_pragma_line();

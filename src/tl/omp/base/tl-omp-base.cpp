@@ -3051,6 +3051,14 @@ namespace TL { namespace OpenMP {
                     directive.get_locus()));
     }
 
+    void Base::oss_assert_handler_pre(TL::PragmaCustomDirective construct) { }
+    void Base::oss_assert_handler_post(TL::PragmaCustomDirective directive)
+    {
+        TL::PragmaCustomLine pragma_line = directive.get_pragma_line();
+        pragma_line.diagnostic_unused_clauses();
+        Nodecl::Utils::remove_from_enclosing_list(directive);
+    }
+
     void Base::oss_lint_handler_pre(TL::PragmaCustomStatement) { }
     void Base::oss_lint_handler_post(TL::PragmaCustomStatement directive)
     {
