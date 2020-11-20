@@ -3085,7 +3085,7 @@ void TaskProperties::create_task_implementations_info(
                 {
                     loop_control = Nodecl::RangeLoopControl::make(
                             induction_sym.make_nodecl(/* set_ref_type */ true),
-                            const_value_to_nodecl(const_value_get_signed_int(0)),
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
                             num_elements_sym.make_nodecl(/* set_ref_type */ true),
                             const_value_to_nodecl(const_value_get_signed_int(1)),
                             initializer_stmts.get_locus());
@@ -3303,7 +3303,7 @@ void TaskProperties::create_task_implementations_info(
                 {
                     loop_control = Nodecl::RangeLoopControl::make(
                             induction_sym.make_nodecl(/* set_ref_type */ true),
-                            const_value_to_nodecl(const_value_get_signed_int(0)),
+                            const_value_to_nodecl(const_value_get_signed_int(1)),
                             num_elements_sym.make_nodecl(/* set_ref_type */ true),
                             const_value_to_nodecl(const_value_get_signed_int(1)),
                             combiner_stmts.get_locus());
