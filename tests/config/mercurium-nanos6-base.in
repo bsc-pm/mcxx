@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+
+# Loading some test-generators utilities
+source @abs_builddir@/test-generators-utilities
+
+if [ "@NANOS6_TESTS_ENABLED@" = "no" ];
+then
+    gen_ignore_test "Nanos6 has not been configured or is being bootstrapped"
+    exit
+fi
+
+if [ "$TEST_LANGUAGE" = "fortran" -a @FORTRAN_TESTS_ENABLED@ = no ];
+then
+    gen_ignore_test "Fortran tests are disabled"
+    exit
+fi
+
+# Parsing the test-generator arguments
+parse_arguments $@
+
+
+if [ "$TG_ARG_OMPSS_2" = "yes" ];
+then
+    PROGRAMMING_MODEL="--ompss-2"
+fi
+
+if [ "$TG_ARG_OPENMP_COMPATIBILITY" = "yes" ];
+then
+    PROGRAMMING_MODEL="${PROGRAMMING_MODEL} --openmp-compatibility"
+fi
+
+
+if [ "$TG_ARG_CXX11" = "yes" ];
+then
+    if ! $(gcc_supports_cxx11);
+    then
+        gen_ignore_test "requires g++ 4.8 or better"
+        exit
+    fi
+    CXX11_FLAG="-std=c++11"
+fi
+
+gen_set_output_dir
+
+source @abs_builddir@/mercurium-libraries
+
+cat <<EOF
+NANOS6_CC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+NANOS6_CXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=mcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG} --debug-flags=abort_on_ice"
+NANOS6_FC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --output-dir=\${OUTPUT_DIR} --profile=mfc --config-dir=@abs_top_builddir@/config -I@abs_top_builddir@/support/openmp/fortran --verbose --debug-flags=abort_on_ice"
+EOF
+
+
+# COMMON_NANOS6_CFLAGS="-DNANOS6"
+
+cat <<EOF
+compile_versions="\${compile_versions} nanos6_mercurium"
+runner_nanos6_mercurium=runner_taskset
+
+test_CC_nanos6_mercurium="\${NANOS6_CC}"
+test_CXX_nanos6_mercurium="\${NANOS6_CXX}"
+test_FC_nanos6_mercurium="\${NANOS6_FC}"
+
+test_FFLAGS="\${test_FFLAGS} --fpc=@abs_top_builddir@/src/driver/fortran/.libs/mf03-prescanner"
+
+test_CFLAGS_nanos6_mercurium=" ${PROGRAMMING_MODEL} ${COMMON_NANOS6_CFLAGS} "
+test_CXXFLAGS_nanos6_mercurium=" ${PROGRAMMING_MODEL} ${COMMON_NANOS6_CFLAGS} "
+test_FFLAGS_nanos6_mercurium=" ${PROGRAMMING_MODEL} "
+
+test_LDFLAGS_nanos6_mercurium="@abs_top_builddir@/lib/perish.o"
+
+EOF
+
+if [ "$TEST_LANGUAGE" = "c" ];
+then
+  if [ ! -z "@ICC@" ];
+  then
+cat <<EOF
+NANOS6_IMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=imcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+compile_versions="\${compile_versions} nanos6_imcc"
+runner_nanos6_imcc=runner_taskset
+test_CC_nanos6_imcc="\${NANOS6_IMCC}"
+test_CFLAGS_nanos6_imcc=" ${PROGRAMMING_MODEL} ${COMMON_NANOS6_CFLAGS} "
+test_LDFLAGS_nanos6_imcc="@abs_top_builddir@/lib/perish.o"
+EOF
+  fi
+
+  if [ ! -z "@XLC@" ];
+  then
+cat <<EOF
+NANOS6_XLMCC="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=xlmcc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+compile_versions="\${compile_versions} nanos6_xlmcc"
+runner_nanos6_xlmcc=runner_taskset
+test_CC_nanos6_xlmcc="\${NANOS6_XLMCC}"
+test_CFLAGS_nanos6_xlmcc=" ${PROGRAMMING_MODEL} ${COMMON_NANOS6_CFLAGS} "
+test_LDFLAGS_nanos6_xlmcc="@abs_top_builddir@/lib/perish.o"
+EOF
+  fi
+fi
+
+if [ "$TEST_LANGUAGE" = "cpp" ];
+then
+  if [ ! -z "@ICPC@" ];
+  then
+cat <<EOF
+NANOS6_IMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=imcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG} --debug-flags=abort_on_ice"
+compile_versions="\${compile_versions} nanos6_imcxx"
+runner_nanos6_imcxx=runner_taskset
+test_CXX_nanos6_imcxx="\${NANOS6_IMCXX}"
+test_CXXFLAGS_nanos6_imcxx=" ${PROGRAMMING_MODEL} ${COMMON_NANOS6_CFLAGS} "
+test_LDFLAGS_nanos6_imcxx="@abs_top_builddir@/lib/perish.o"
+EOF
+  fi
+
+  if [ ! -z "@XLCXX@" ];
+  then
+cat <<EOF
+NANOS6_XLMCXX="@abs_top_builddir@/src/driver/plaincxx --output-dir=\${OUTPUT_DIR} --profile=xlmcxx --config-dir=@abs_top_builddir@/config --verbose ${CXX11_FLAG} --debug-flags=abort_on_ice"
+compile_versions="\${compile_versions} nanos6_xlmcxx"
+runner_nanos6_xlmcxx=runner_taskset
+test_CXX_nanos6_xlmcxx="\${NANOS6_XLMCXX}"
+test_CXXFLAGS_nanos6_xlmcxx=" ${PROGRAMMING_MODEL} ${COMMON_NANOS6_CFLAGS} "
+test_LDFLAGS_nanos6_xlmcxx="@abs_top_builddir@/lib/perish.o"
+EOF
+  fi
+fi
+
+if [ "$TEST_LANGUAGE" = "fortran" ];
+then
+  if [ ! -z "@IFORT@" ];
+  then
+cat <<EOF
+NANOS6_IMFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --module-out-pattern=-module,%s --output-dir=\${OUTPUT_DIR} --profile=imfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+compile_versions="\${compile_versions} nanos6_imfc"
+runner_nanos6_imfc=runner_taskset
+test_FC_nanos6_imfc="\${NANOS6_IMFC}"
+test_FFLAGS_nanos6_imfc=" ${PROGRAMMING_MODEL} "
+test_LDFLAGS_nanos6_imfc="@abs_top_builddir@/lib/perish.o"
+test_ENV_nanos6_imfc="FOR_IGNORE_EXCEPTIONS=1"
+EOF
+  fi
+
+  if [ ! -z "@XLF@" ];
+  then
+cat <<EOF
+NANOS6_XLMFC="@abs_top_builddir@/src/driver/plaincxx ${TEMPORARY_MODULE_PATH} --module-out-pattern=-qmoddir=%s --output-dir=\${OUTPUT_DIR} --profile=xlmfc --config-dir=@abs_top_builddir@/config --verbose --debug-flags=abort_on_ice"
+compile_versions="\${compile_versions} nanos6_xlmfc"
+runner_nanos6_xlmfc=runner_taskset
+test_FC_nanos6_xlmfc="\${NANOS6_XLMFC}"
+test_FFLAGS_nanos6_xlmfc=" ${PROGRAMMING_MODEL} "
+test_LDFLAGS_nanos6_xlmfc="@abs_top_builddir@/lib/perish.o"
+EOF
+  fi
+fi
+
+TESTS_EXTRA_FLAGS="loader.verbose=true,$TESTS_EXTRA_FLAGS"
+
+for threads in 1 2 4;
+do
+        vername=nanos6_optimized_${threads}thread
+cat <<EOF
+exec_versions="\${exec_versions} $vername"
+test_ENV_$vername="NANOS6_CONFIG_OVERRIDE="$NANOS6_CONFIG_OVERRIDE,$TESTS_EXTRA_FLAGS" TASKSET_NUM_CPUS='$threads'"
+EOF
+    unset vername
+done

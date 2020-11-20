@@ -1,6 +1,6 @@
 /*
 <testinfo>
-test_generator="config/mercurium-ompss-2"
+test_generator="config/mercurium-nanos6-regions"
 </testinfo>
 */
 

@@ -2222,6 +2222,8 @@ AC_CONFIG_FILES([tests/config/mercurium-hlt], [chmod +x tests/config/mercurium-h
 AC_CONFIG_FILES([tests/config/mercurium-iomp], [chmod +x tests/config/mercurium-iomp])
 AC_CONFIG_FILES([tests/config/mercurium-libraries], [chmod +x tests/config/mercurium-libraries])
 AC_CONFIG_FILES([tests/config/mercurium-nanos6], [chmod +x tests/config/mercurium-nanos6])
+AC_CONFIG_FILES([tests/config/mercurium-nanos6-base], [chmod +x tests/config/mercurium-nanos6-base])
+AC_CONFIG_FILES([tests/config/mercurium-nanos6-regions], [chmod +x tests/config/mercurium-nanos6-regions])
 AC_CONFIG_FILES([tests/config/mercurium-nanox], [chmod +x tests/config/mercurium-nanox])
 AC_CONFIG_FILES([tests/config/mercurium-omp], [chmod +x tests/config/mercurium-omp])
 AC_CONFIG_FILES([tests/config/mercurium-ompss], [chmod +x tests/config/mercurium-ompss])

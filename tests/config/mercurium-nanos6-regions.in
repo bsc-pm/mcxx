@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-export TESTS_EXTRA_FLAGS=""
+export TESTS_EXTRA_FLAGS="version.dependencies=regions"
 
 @abs_builddir@/mercurium-nanos6-base ompss-2 $@
