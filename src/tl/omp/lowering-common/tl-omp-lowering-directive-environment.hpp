@@ -70,6 +70,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
     {
         Nodecl::NodeclBase node;
         const_value_t *default_value;
+        unsigned int min_version; // Minimum version for nanos6_task_constraints_api
     } constrain_defaulted_t;
 
     typedef std::pair<std::string, constrain_defaulted_t> named_constrain_defaulted_t;

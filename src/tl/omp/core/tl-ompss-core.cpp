@@ -752,11 +752,10 @@ namespace TL { namespace OpenMP {
         }
 
         { // Constrains
-            const TL::OmpSs::FunctionTaskInfo::constrains_names_list_t constrains_names
-                = task_info.get_constrains_names();
+            const TL::OmpSs::FunctionTaskInfo::constrain_map_t &constrains = task_info.get_constrains_map();
 
-            for (auto &name : constrains_names) {
-
+            for (auto &it : constrains) {
+                std::string name = it.first;
                 PragmaCustomClause clause = pragma_line.get_clause(name);
 
                 if (clause.is_defined())

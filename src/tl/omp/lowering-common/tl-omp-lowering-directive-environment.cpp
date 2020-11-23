@@ -28,6 +28,7 @@
 #include "tl-omp-lowering-directive-environment.hpp"
 //#include "tl-nanos6-interface.hpp"
 
+#include "tl-omp-lowering-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
 
 #include "cxx-cexpr.h"
@@ -539,16 +540,16 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         // Constrains
         constrains["cost"].default_value = const_value_get_unsigned_int(0); // default value
+        constrains["cost"].min_version = 1;
         fp_syms_without_data_sharing(constrains["cost"].node);
 
-        if (Interface::family_is_at_least("nanos6_task_constraints_api", 3))
-        {
-            constrains["stream"].default_value = const_value_get_unsigned_int(0);
-            fp_syms_without_data_sharing(constrains["stream"].node);
+        constrains["stream"].default_value = const_value_get_unsigned_int(0);
+        constrains["stream"].min_version = 2;
+        fp_syms_without_data_sharing(constrains["stream"].node);
 
-            constrains["node"].default_value = const_value_get_unsigned_int(0xFFFF);
-            fp_syms_without_data_sharing(constrains["node"].node);
-        }
+        constrains["node"].default_value = const_value_get_unsigned_int(0xFFFF);
+        constrains["node"].min_version = 3;
+        fp_syms_without_data_sharing(constrains["node"].node);
     }
 
     void DirectiveEnvironment::handle_array_bound(Nodecl::NodeclBase n)

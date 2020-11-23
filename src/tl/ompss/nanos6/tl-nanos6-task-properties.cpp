@@ -2956,6 +2956,18 @@ void TaskProperties::create_task_implementations_info(
         // _env.constrains is a map, so auto is a pair iterator.
         for (auto &it : _env.constrains)
         {
+            // Generate code only for the right versions.
+            if (!Interface::family_is_at_least("nanos6_task_constraints_api", it.second.min_version))
+            {
+                if (!it.second.node.is_null()) {
+                    warn_printf_at(NULL,
+                        "Ignoring clause: %s. Requires at least nanos6_task_constraints_api %ud\n",
+                        it.first.c_str(), it.second.min_version
+                    );
+                }
+                continue;
+            }
+
             Nodecl::NodeclBase member = get_field(it.first);
 
             Nodecl::NodeclBase lhs_expr = Nodecl::ClassMemberAccess::make(
@@ -3012,12 +3024,14 @@ void TaskProperties::create_task_implementations_info(
     TL::Symbol TaskProperties::create_constraints_function()
     {
         // Do not generate this function if the current task doesn't have any
-        // constrain
+        // constrain or the constrains are for newer api versions.
         if (std::all_of(
                 _env.constrains.begin(),
                 _env.constrains.end(),
                 [](const TL::OpenMP::Lowering::named_constrain_defaulted_t &i) {
-                    return i.second.node.is_null();
+                    return i.second.node.is_null()
+                        || !Interface::family_is_at_least(
+                            "nanos6_task_constraints_api", i.second.min_version);
                 }))
             return TL::Symbol::invalid();
 

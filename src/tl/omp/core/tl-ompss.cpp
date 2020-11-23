@@ -46,10 +46,6 @@ namespace TL {
 }
 
 // This is the arrays with the OmpSs constrains
-const TL::OmpSs::FunctionTaskInfo::constrains_names_list_t
-    TL::OmpSs::FunctionTaskInfo::_constrains_names
-        = { "cost", "stream", "node" };
-
 namespace TL { namespace OmpSs {
 
     std::string directionality_to_str(CopyDirection dir)
@@ -433,9 +429,9 @@ namespace TL { namespace OmpSs {
         : _sym(sym),
         _parameters(parameter_info)
     {
-        for (const std::string &it : _constrains_names) {
-            _constrains[it];
-        }
+        _constrains["cost"];
+        _constrains["stream"];
+        _constrains["node"];
     }
 
     FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
@@ -447,6 +443,9 @@ namespace TL { namespace OmpSs {
         _parameter_reductions(parameter_red_info),
         _parameter_weakreductions(parameter_weakred_info)
     {
+        _constrains["cost"];
+        _constrains["stream"];
+        _constrains["node"];
     }
 
     FunctionTaskInfo::FunctionTaskInfo(
@@ -585,11 +584,11 @@ namespace TL { namespace OmpSs {
             new_function_task_info._priority_clause_expr = updated_priority_clause;
         }
 
-        // We use _constrains_names arrays for a double check and protect from
-        // other errors combined with 'at' operator.
-        for (const auto &it : _constrains_names)
+        // We iterate here over an array of type constrain_map_t which values
+        // are constrain_defaulted_t.
+        for (const auto &it : _constrains)
         {
-            Nodecl::NodeclBase &old_clause = _constrains.at(it);
+            const Nodecl::NodeclBase &old_clause = it.second;
 
             if (!old_clause.is_null())
             {
@@ -599,7 +598,7 @@ namespace TL { namespace OmpSs {
                     instantiation_symbol_map,
                     /* pack index */ -1);
 
-                new_function_task_info._constrains[it] = updated_clause;
+                new_function_task_info._constrains[it.first] = updated_clause;
             }
         }
 
@@ -730,14 +729,9 @@ namespace TL { namespace OmpSs {
         return _priority_clause_expr;
     }
 
-    const FunctionTaskInfo::constrains_names_list_t &FunctionTaskInfo::get_constrains_names()
+    const FunctionTaskInfo::constrain_map_t &FunctionTaskInfo::get_constrains_map() const
     {
-        return _constrains_names;
-    }
-
-    Nodecl::NodeclBase FunctionTaskInfo::get_constrain_clause_expression(const std::string &name) const
-    {
-        return _constrains.at(name);
+        return _constrains;
     }
 
     Nodecl::NodeclBase FunctionTaskInfo::get_onready_clause_expression() const

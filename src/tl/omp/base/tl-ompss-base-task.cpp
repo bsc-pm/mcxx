@@ -651,12 +651,13 @@ namespace TL { namespace OmpSs {
 
 
         {   // Constrains
-            const TL::OmpSs::FunctionTaskInfo::constrains_names_list_t &constrains_names =
-                function_task_info.get_constrains_names();
+            const TL::OmpSs::FunctionTaskInfo::constrain_map_t &constrains =
+                function_task_info.get_constrains_map();
 
-            for (const auto &name : constrains_names) {
+            for (const auto &it : constrains) {
+                const std::string &name = it.first;
+                const Nodecl::NodeclBase &contrain = it.second;
 
-                Nodecl::NodeclBase contrain = function_task_info.get_constrain_clause_expression(name);
                 if (!contrain.is_null())
                 {
                     if (name == "cost") {

@@ -153,13 +153,7 @@ namespace TL { namespace OmpSs {
     {
 
         public:
-            typedef std::pair<std::string, Nodecl::NodeclBase> named_constrain_pair_t;
-            typedef std::map<std::string, Nodecl::NodeclBase> named_constrain_map_t;
-
-            //typedef std::array<std::string, 3> constrains_names_list_t;
-            typedef std::array<std::string, 3> constrains_names_list_t;
-
-            static const constrains_names_list_t _constrains_names;
+            typedef std::map<std::string, Nodecl::NodeclBase> constrain_map_t;
 
         private:
             Symbol _sym;
@@ -181,7 +175,7 @@ namespace TL { namespace OmpSs {
             Nodecl::NodeclBase _onready_clause_expr;
             Nodecl::NodeclBase _task_label;
 
-            named_constrain_map_t _constrains;
+            constrain_map_t _constrains;
 
             TL::Scope _parsing_scope;
 
@@ -226,9 +220,9 @@ namespace TL { namespace OmpSs {
             void set_priority_clause_expression(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_priority_clause_expression() const;
 
-            static const constrains_names_list_t &get_constrains_names();
+            const constrain_map_t &get_constrains_map() const;
+
             void set_constrain_clause_expression(const std::string &name, Nodecl::NodeclBase expr);
-            Nodecl::NodeclBase get_constrain_clause_expression(const std::string &name) const;
 
             void set_onready_clause_expression(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_onready_clause_expression() const;
