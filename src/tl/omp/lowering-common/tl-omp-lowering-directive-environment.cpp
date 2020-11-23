@@ -541,11 +541,14 @@ namespace TL { namespace OpenMP { namespace Lowering {
         constrains["cost"].default_value = const_value_get_unsigned_int(0); // default value
         fp_syms_without_data_sharing(constrains["cost"].node);
 
-        constrains["stream"].default_value = const_value_get_unsigned_int(0);
-        fp_syms_without_data_sharing(constrains["stream"].node);
+        if (Interface::family_is_at_least("nanos6_task_constraints_api", 3))
+        {
+            constrains["stream"].default_value = const_value_get_unsigned_int(0);
+            fp_syms_without_data_sharing(constrains["stream"].node);
 
-        constrains["node"].default_value = const_value_get_unsigned_int(0xFFFF);
-        fp_syms_without_data_sharing(constrains["node"].node);
+            constrains["node"].default_value = const_value_get_unsigned_int(0xFFFF);
+            fp_syms_without_data_sharing(constrains["node"].node);
+        }
     }
 
     void DirectiveEnvironment::handle_array_bound(Nodecl::NodeclBase n)
