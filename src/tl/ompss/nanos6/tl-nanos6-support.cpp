@@ -466,6 +466,9 @@ namespace TL { namespace Nanos6 {
 
     TL::Symbol get_nanos6_register_loop_bounds_function()
     {
+        ERROR_CONDITION(
+            Interface::family_is_at_least("nanos6_loop_api", 3) && !Interface::family_is_at_least("nanos6_loop_api", 2),
+                "This function cannot be used with nanos6_loop_api >= 3", 0);
         return Interface::family_is_at_least("nanos6_loop_api", 2)
             ? get_nanos6_function_symbol("nanos6_register_loop_bounds")
             : get_nanos6_function_symbol("nanos6_register_taskloop_bounds");

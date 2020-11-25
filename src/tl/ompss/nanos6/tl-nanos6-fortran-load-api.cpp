@@ -88,7 +88,17 @@ const char *multidimensional_entry_points[] =
                     reduction_entry_points, empty, nanos6_api_max_dimensions());
         }
 
-        if (Interface::family_is_at_least("nanos6_loop_api", 2)) {
+        if (Interface::family_is_at_least("nanos6_loop_api", 3)) {
+            const char *loop_entry_points[] = {
+                "nanos6_create_loop",
+                NULL,
+            };
+            const char *empty[] = { NULL };
+
+            TL::OpenMP::Lowering::Utils::Fortran::fixup_entry_points(
+                    loop_entry_points, empty, nanos6_api_max_dimensions());
+        }
+        else if (Interface::family_is_at_least("nanos6_loop_api", 2)) {
             const char *loop_entry_points[] = {
                 "nanos6_register_loop_bounds",
                 NULL,

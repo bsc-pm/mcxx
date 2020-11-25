@@ -193,16 +193,29 @@ namespace TL { namespace Nanos6 {
                     new_stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), task_ptr));
                 }
 
-                TL::Symbol nanos_create_task_sym = get_nanos6_function_symbol("nanos6_create_task");
+                TL::Symbol nanos_create_task_sym;
+                if (Interface::family_is_at_least("nanos6_loop_api", 3))
+                {
+                    nanos_create_task_sym = get_nanos6_function_symbol("nanos6_create_loop");
+                }
+                else
+                {
+                    nanos_create_task_sym = get_nanos6_function_symbol("nanos6_create_task");
+                }
 
-                // void nanos_create_task(
-                //         nanos_task_info *task_info,
-                //         nanos_task_invocation_info *task_invocation_info,
+                // void nanos6_create_loop(
+                //         nanos6_task_info_t *task_info,
+                //         nanos6_task_invocation_info_t *task_invocation_info,
                 //         size_t args_block_size,
                 //         /* OUT */ void **args_block_pointer,
                 //         /* OUT */ void **task_pointer,
                 //         size_t flags,
-                //         size_t num_deps);
+                //         size_t num_deps,
+                //         size_t lower_bound,
+                //         size_t upper_bound,
+                //         size_t grainsize,
+                //         size_t chunksize
+                // );
 
                 Nodecl::List create_task_args;
 
@@ -314,6 +327,29 @@ namespace TL { namespace Nanos6 {
                     create_task_args.append(num_deps.make_nodecl(/* set_ref_type */ true));
                 }
 
+                if (Interface::family_is_at_least("nanos6_loop_api", 3))
+                {
+                    Nodecl::NodeclBase lower_bound = task_properties.get_lower_bound().shallow_copy();
+                    if (IS_FORTRAN_LANGUAGE)
+                        lower_bound = Nodecl::Conversion::make(lower_bound, TL::Type::get_size_t_type());
+                    create_task_args.append(lower_bound);
+
+                    Nodecl::NodeclBase upper_bound = task_properties.get_upper_bound().shallow_copy();
+                    if (IS_FORTRAN_LANGUAGE)
+                        upper_bound = Nodecl::Conversion::make(upper_bound, TL::Type::get_size_t_type());
+                    create_task_args.append(upper_bound);
+
+                    Nodecl::NodeclBase grainsize = task_properties.get_grainsize().shallow_copy();
+                    if (IS_FORTRAN_LANGUAGE)
+                        grainsize = Nodecl::Conversion::make(grainsize, TL::Type::get_size_t_type());
+                    create_task_args.append(grainsize);
+
+                    Nodecl::NodeclBase chunksize = task_properties.get_chunksize().shallow_copy();
+                    if (IS_FORTRAN_LANGUAGE)
+                        chunksize = Nodecl::Conversion::make(chunksize, TL::Type::get_size_t_type());
+                    create_task_args.append(chunksize);
+                }
+
             if (IS_FORTRAN_LANGUAGE)
             {
                 Nodecl::NodeclBase allocate_stmt = Nodecl::FortranAllocateStatement::make(
@@ -350,6 +386,7 @@ namespace TL { namespace Nanos6 {
                 new_stmts.append(capture_env);
             }
 
+            if (!Interface::family_is_at_least("nanos6_loop_api", 3))
             {
                 TL::Symbol nanos_register_loop_sym = get_nanos6_register_loop_bounds_function();
 
