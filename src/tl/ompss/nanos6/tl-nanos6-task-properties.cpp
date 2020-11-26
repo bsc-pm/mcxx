@@ -792,7 +792,50 @@ namespace TL { namespace Nanos6 {
         }
     }
 
-    bool TaskProperties::check_taskloop_multidep_ind_var_use()
+    bool TaskProperties::check_multidep_uses_symbol(const TL::DataReference &data_ref, TL::Symbol sym)
+    {
+        TL::Type data_type = data_ref.get_data_type();
+
+        if (data_ref.is_multireference())
+        {
+            TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
+                data_ref.get_iterators_of_multireference();
+            struct SymbolExistenceCheck : Nodecl::ExhaustiveVisitor<void>
+            {
+                TL::Symbol _sym;
+                bool exist = false;
+
+                SymbolExistenceCheck(TL::Symbol sym)
+                    : _sym(sym)
+                { }
+
+                bool exist_symbol() const { return exist; }
+
+                virtual void visit(const Nodecl::Symbol& node)
+                {
+                    TL::Symbol sym = node.get_symbol();
+                    if (_sym == sym) exist = true;
+                }
+            };
+
+            for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_iterator it1 = multireferences.begin();
+                    it1 != multireferences.end();
+                    it1++)
+            {
+                ERROR_CONDITION(!it1->second.is<Nodecl::Range>(), "Invalid Node", 0);
+                Nodecl::Range range = it1->second.as<Nodecl::Range>();
+                SymbolExistenceCheck sec(sym);
+                sec.walk(range.get_lower());
+                sec.walk(range.get_upper());
+                sec.walk(range.get_stride());
+                if (sec.exist_symbol())
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    bool TaskProperties::check_taskloop_has_multidep_ind_var_use()
     {
         ERROR_CONDITION(!task_is_taskloop(),
             "Task is not Taskloop", 0);
@@ -834,44 +877,8 @@ namespace TL { namespace Nanos6 {
                     it++)
             {
                 TL::DataReference data_ref = *it;
-                TL::Type data_type = data_ref.get_data_type();
-
-                if (data_ref.is_multireference())
-                {
-                    TL::ObjectList<TL::DataReference::MultiRefIterator> multireferences =
-                        data_ref.get_iterators_of_multireference();
-                    struct SymbolExistenceCheck : Nodecl::ExhaustiveVisitor<void>
-                    {
-                        TL::Symbol _sym;
-                        bool exist = false;
-
-                        SymbolExistenceCheck(TL::Symbol sym)
-                            : _sym(sym)
-                        { }
-
-                        bool exist_symbol() const { return exist; }
-
-                        virtual void visit(const Nodecl::Symbol& node)
-                        {
-                            TL::Symbol sym = node.get_symbol();
-                            if (_sym == sym) exist = true;
-                        }
-                    };
-
-                    for (TL::ObjectList<TL::DataReference::MultiRefIterator>::const_iterator it1 = multireferences.begin();
-                            it1 != multireferences.end();
-                            it1++)
-                    {
-                        ERROR_CONDITION(!it1->second.is<Nodecl::Range>(), "Invalid Node", 0);
-                        Nodecl::Range range = it1->second.as<Nodecl::Range>();
-                        SymbolExistenceCheck sec(ind_var);
-                        sec.walk(range.get_lower());
-                        sec.walk(range.get_upper());
-                        sec.walk(range.get_stride());
-                        if (sec.exist_symbol())
-                            return true;
-                    }
-                }
+                if (check_multidep_uses_symbol(data_ref, ind_var))
+                    return true;
             }
         }
         return false;
@@ -916,7 +923,7 @@ namespace TL { namespace Nanos6 {
 
         // Fallback to num_deps = -1 in taskloop multideps dependent from induction variable.
         // This is because we cannot compute them before creating the taskloop.
-        if (task_is_taskloop() && check_taskloop_multidep_ind_var_use())
+        if (task_is_taskloop() && check_taskloop_has_multidep_ind_var_use())
         {
             static_num_deps = -1;
         }
