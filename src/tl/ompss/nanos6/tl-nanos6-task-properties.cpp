@@ -3966,6 +3966,15 @@ void TaskProperties::create_task_implementations_info(
         Nodecl::NodeclBase empty_stmt  = Nodecl::EmptyStatement::make();
         Nodecl::List inner_stmts = Nodecl::List::make(empty_stmt);
 
+        if (task_is_taskloop()) {
+            TL::Symbol ind_var = get_induction_variable();
+            // Taskloop uses of induction variable default to lower_bound.
+            extended_symbol_map.add_map(ind_var, tl_lower_bound_sym);
+            // Multidep dependency is assumed to be discrete if uses induction variable
+            if (check_multidep_uses_symbol(data_ref, ind_var))
+                tl_upper_bound_sym = tl_lower_bound_sym;
+        }
+
         Nodecl::List loop_stmts = create_loop_stmts_for_iterators(
                 multireferences, extended_symbol_map, inner_stmts, scope, _related_function);
 
@@ -4107,9 +4116,6 @@ void TaskProperties::create_task_implementations_info(
                             /* member_literal */ Nodecl::NodeclBase::null(),
                             lower_bound_field.get_type()),
                         lower_bound_field.get_type().no_ref()));
-
-            // Taskloop uses of induction variable default to lower_bound
-            symbol_map.add_map(get_induction_variable(), tl_lower_bound_sym);
 
             Nodecl::NodeclBase upper_bound_field = get_field_taskloop("upper_bound");
             tl_upper_bound_sym = unpacked_fun_inside_scope.new_symbol("tl_upper");
