@@ -972,13 +972,16 @@ namespace TL { namespace OpenMP {
             }
             else
             {
-                ObjectList<std::string> assert_str_list = param.get_tokenized_arguments();
+                std::string assert_str = param.get_raw_arguments();
 
                 diagnostic_context_t *diag_ctx
                     = diagnostic_context_new_buffered();
                     diagnostic_context_push(diag_ctx);
-                TL::ObjectList<Nodecl::NodeclBase> assert_expr_list
-                    = param.get_arguments_as_expressions();
+                Source src;
+                src << "#line " << param.get_line() << " \"" << param.get_filename() << "\"\n"
+                    << pad_to_column(param.get_column()) << assert_str;
+
+                Nodecl::NodeclBase assert_expr = src.parse_expression(scope);
                 diagnostic_context_pop_and_discard();
 
                 bool is_error = true;
@@ -987,13 +990,12 @@ namespace TL { namespace OpenMP {
                            && const_value_is_string(expr.get_constant());
                 };
 
-                if (assert_expr_list.size() == 1 && is_valid_expr(assert_expr_list[0]))
+                if (is_valid_expr(assert_expr))
                 {
                     char is_null_ended = 0;
 
-                    assert_str_list.clear();
-                    assert_str_list.push_back(const_value_string_unpack_to_string(
-                        assert_expr_list[0].get_constant(), &is_null_ended));
+                    assert_str = const_value_string_unpack_to_string(
+                        assert_expr.get_constant(), &is_null_ended);
                     is_error = false;
                 }
 
@@ -1004,7 +1006,7 @@ namespace TL { namespace OpenMP {
                 }
                 else
                 {
-                    _ompss_assert_info->add_assert_string(assert_str_list[0]);
+                    _ompss_assert_info->add_assert_string(assert_str);
                 }
             }
         }
