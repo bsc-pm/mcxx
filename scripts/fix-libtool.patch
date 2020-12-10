@@ -1,0 +1,23 @@
+--- libtool.orig	2020-12-10 07:40:38.350981700 +0000
++++ libtool	2020-12-10 07:40:42.415018843 +0000
+@@ -5996,6 +5996,20 @@
+     # The second colon is a workaround for a bug in BeOS R4 sed
+     $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's/::*\$//'\`
+ 
++    # Horrible HACK:
++    # Make sure /usr/lib or /usr/lib64 are not in this variable
++    # which kind of defeats the point of setting LD_LIBRARY_PATH
++    # in the first place.
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib64:,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib64\$,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib64:,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib64\$,,'\`
++
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib:,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib\$,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib:,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib\$,,'\`
++
+     export $shlibpath_var
+ "
+ 	fi

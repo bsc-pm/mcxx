@@ -1693,6 +1693,7 @@ AC_ARG_VAR([GIT], [git content tracker])
 AC_ARG_VAR([PGIFC], [PGI Fortran Compiler])
 AC_ARG_VAR([PGICC], [PGI C Compiler])
 AC_ARG_VAR([PGICXX], [PGI C++ Compiler])
+AC_ARG_VAR([PATCH], [Patch tool])
 
 force_flex=no
 flex_good=no
@@ -2189,6 +2190,8 @@ then
      AC_MSG_RESULT([$build_version])
 fi
 
+AC_CHECK_PROG([PATCH], [patch], [patch])
+
 MCXX_BUILD_VERSION="$build_version"
 AC_SUBST([MCXX_BUILD_VERSION])
 
@@ -2244,6 +2247,28 @@ AC_CONFIG_FILES([tests/config/compute_random_taskset.py], [chmod +x tests/config
 AC_CONFIG_FILES([tests/05_torture_cxx_1.dg/mercurium], [chmod +x tests/05_torture_cxx_1.dg/mercurium])
 AC_CONFIG_FILES([tests/05_torture_cxx_1.dg/mercurium-cxx11], [chmod +x tests/05_torture_cxx_1.dg/mercurium-cxx11])
 AC_CONFIG_FILES([tests/05_torture_cxx_2.dg/mercurium], [chmod +x tests/05_torture_cxx_2.dg/mercurium])
+
+AC_CONFIG_COMMANDS([patch_libtool],
+[
+AC_MSG_CHECKING([whether we can patch libtool to avoid LD_LIBRARY_PATH issues])
+if test "$PATCH" = "";
+then
+  AC_MSG_RESULT([no, patch tool was not found])
+else
+  # Patch libtool if possible
+  cp libtool libtool.old
+  "$PATCH" -s -f -p0 < "$srcdir/scripts/fix-libtool.patch"
+  if test "$?" = 0;
+  then
+    AC_MSG_RESULT([yes])
+  else
+    cp libtool.old libtool
+    AC_MSG_RESULT([no, the original libtool file has been preserved])
+  fi
+  rm -f libtool.old
+fi
+],
+[PATCH=$PATCH])
 
 AC_OUTPUT
 
