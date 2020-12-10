@@ -3571,6 +3571,7 @@ EXTRA_DIST += \
 			scripts/simd/x86/builtins_ia32.cpp \
 			scripts/simd/neon/builtins_neon.cpp \
 			scripts/simd/builtins-common.hpp \
+			scripts/fix-libtool.patch \
 			$(DEBIAN_EXTRA) \
 			$(LIT_EXTRA) \
 			$(END)
