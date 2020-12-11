@@ -237,9 +237,12 @@ namespace TL { namespace Nanos6 {
              */
             void firstprivatize_symbols_without_data_sharing();
 
+            // returns true if multidep uses the symbol
+            bool check_multidep_uses_symbol(const TL::DataReference &data_ref, TL::Symbol sym);
+
             // Taskloops may have multideps using the induction variable
             // returns true if so, false otherwise.
-            bool check_taskloop_multidep_ind_var_use();
+            bool check_taskloop_has_multidep_ind_var_use();
 
         public:
             TaskProperties(
