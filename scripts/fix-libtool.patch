@@ -10,12 +10,12 @@
 +    # in the first place.
 +    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib64:,,'\`
 +    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib64\$,,'\`
-+    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib64:,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib64:,:,'\`
 +    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib64\$,,'\`
 +
 +    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib:,,'\`
 +    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,^/usr/lib\$,,'\`
-+    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib:,,'\`
++    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib:,:,'\`
 +    $shlibpath_var=\`\$ECHO \"\$$shlibpath_var\" | $SED 's,:/usr/lib\$,,'\`
 +
      export $shlibpath_var
