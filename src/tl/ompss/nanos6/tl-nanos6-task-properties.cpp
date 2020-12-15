@@ -1638,6 +1638,7 @@ void TaskProperties::create_task_implementations_info(
                 TL::Symbol induction_variable,
                 TL::Scope scope,
                 bool define_induction_variable,
+                Nodecl::Utils::SimpleSymbolMap &symbol_map,
                 Nodecl::NodeclBase &extra_stmts)
         {
             Nodecl::NodeclBase loop_control;
@@ -1708,11 +1709,17 @@ void TaskProperties::create_task_implementations_info(
                 }
                 else
                 {
-                    init =
-                        Nodecl::Assignment::make(
-                                induction_variable.make_nodecl(/* set_ref_type */ true),
-                                lower_bound_sym.make_nodecl(/* set_ref_type */ true),
-                                induction_variable.get_type());
+                    // Create a new loop induction variable
+                    std::stringstream ss;
+                    ss << induction_variable.get_name() << "_tmp";
+                    Symbol new_ind_var = scope.new_symbol(ss.str());
+                    symbol_entity_specs_set_is_user_declared(new_ind_var.get_internal_symbol(), 1);
+                    new_ind_var.get_internal_symbol()->kind = SK_VARIABLE;
+                    new_ind_var.set_type(induction_type);
+                    new_ind_var.set_value(lower_bound_sym.make_nodecl(/* set_ref_type */ true));
+                    init = Nodecl::ObjectInit::make(new_ind_var);
+
+                    symbol_map.add_map(induction_variable, new_ind_var);
                 }
 
                 Nodecl::NodeclBase cond =
@@ -2770,6 +2777,7 @@ void TaskProperties::create_task_implementations_info(
                         ind_var,
                         unpacked_fun_inside_scope,
                         for_stmt.induction_variable_in_separate_scope(),
+                        symbol_map,
                         unpacked_fun_empty_stmt));
         }
 
