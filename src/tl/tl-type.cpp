@@ -543,7 +543,7 @@ namespace TL
 
     bool Type::is_expression_dependent() const
     {
-        return false;
+        return ::is_unknown_dependent_type(_type_info);
     }
 
     bool Type::is_pack() const
