@@ -3267,7 +3267,20 @@ CxxBase::Ret CxxBase::visit(const Nodecl::LoopControl& node)
 
                 object_init_symbols.append(it->as<Nodecl::ObjectInit>().get_symbol());
             }
-            define_or_declare_variables(object_init_symbols, /* is definition */ true);
+            TL::Symbol first_symbol = object_init_symbols[0];
+            bool force_copy_initialization = false;
+            if (first_symbol.get_type().is_integral_type())
+            {
+                // Some OpenMP constructs won't work if we emit a loop like
+                // this:
+                //   for(int i(0); i < N; i++)
+                // also it looks a bit odd in this common case even if valid
+                // C++. Force copy-initialization only in this case.
+                force_copy_initialization = true;
+            }
+            define_or_declare_variables(object_init_symbols,
+                /* is definition */ true,
+                /* force_copy_initialization */ force_copy_initialization);
         }
     }
 
@@ -6315,7 +6328,7 @@ void CxxBase::define_or_declare_if_complete(TL::Symbol sym,
     }
 }
 
-void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bool is_definition)
+void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bool is_definition, bool force_copy_initialization)
 {
     // Emit the initializer if:
     //  - We have a nonmember declaration
@@ -6457,7 +6470,7 @@ void CxxBase::define_or_declare_variable_emit_initializer(TL::Symbol& symbol, bo
                     walk(init);
                 }
             }
-            else if (state.in_condition)
+            else if (force_copy_initialization || state.in_condition)
             {
                 // This is something like if (bool foo = expression)
                 *(file) << " = ";
@@ -6588,7 +6601,7 @@ void CxxBase::emit_declarations_of_initializer(TL::Symbol symbol)
     }
 }
 
-void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, bool is_definition)
+void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, bool is_definition, bool force_copy_initialization)
 {
     codegen_status_t codegen_status =
         (is_definition) ? CODEGEN_STATUS_DEFINED : CODEGEN_STATUS_DECLARED;
@@ -6601,7 +6614,7 @@ void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, b
         emit_declarations_of_initializer(symbol);
     }
 
-    define_or_declare_variable(symbols[0], is_definition);
+    define_or_declare_variable(symbols[0], is_definition, force_copy_initialization);
     // We ignore the first symbol as it has been already declared
     for (TL::ObjectList<TL::Symbol>::iterator it = (symbols.begin() + 1);
             it != symbols.end();
@@ -6623,7 +6636,7 @@ void CxxBase::define_or_declare_variables(TL::ObjectList<TL::Symbol>& symbols, b
     }
 }
 
-void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
+void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition, bool force_copy_initialization)
 {
     ERROR_CONDITION(!symbol.is_variable(), "must be a variable", 0);
 
@@ -6810,7 +6823,7 @@ void CxxBase::define_or_declare_variable(TL::Symbol symbol, bool is_definition)
         *(file) << gcc_extension << decl_specifiers << gcc_attributes << std_attributes << declarator << virt_specifiers << bit_field;
     }
 
-    define_or_declare_variable_emit_initializer(symbol, is_definition);
+    define_or_declare_variable_emit_initializer(symbol, is_definition, force_copy_initialization);
 
     if (!state.in_condition
             && !state.in_for_stmt_decl)
