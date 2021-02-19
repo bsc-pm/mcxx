@@ -273,22 +273,28 @@ void gather_one_gcc_attribute(const char* attribute_name,
         {
             // Evaluate the expression
             AST argument = ASTSon1(expression_list);
-            check_expression(argument, decl_context, &nodecl_expression_list);
+            check_expression_must_be_constant(argument, decl_context, &nodecl_expression_list);
             if (nodecl_is_err_expr(nodecl_expression_list))
             {
                 do_not_keep_attribute = 1;
             }
             else
             {
+                nodecl_expression_list = nodecl_expression_make_rvalue(nodecl_expression_list, decl_context);
                 if (!nodecl_expr_is_value_dependent(nodecl_expression_list)
                         && !nodecl_is_constant(nodecl_expression_list))
                 {
                     error_printf_at(ast_get_locus(expression_list), "attribute 'aligned' is not constant\n");
                     do_not_keep_attribute = 1;
                 }
+                else if (!nodecl_expr_is_value_dependent(nodecl_expression_list))
+                {
+                  nodecl_expression_list =
+                    nodecl_make_list_1(const_value_to_nodecl(nodecl_get_constant(nodecl_expression_list)));
+                }
                 else
                 {
-                    nodecl_expression_list = nodecl_make_list_1(nodecl_expression_list);
+                  nodecl_expression_list = nodecl_make_list_1(nodecl_expression_list);
                 }
             }
         }
