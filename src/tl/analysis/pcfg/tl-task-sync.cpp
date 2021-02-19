@@ -480,7 +480,7 @@ namespace {
     }
 
     // Computes if task source will synchronize with the creation of the task target
-    tribool compute_task_sync_relationship(Node* source, Node* target, bool keep_alive)
+    tribool compute_task_sync_relationship(Node* source, Node* target, bool /* keep_alive */)
     {
 #ifdef TASK_SYNC_DEBUG
         std::cerr << "CHECKING DEPENDENCES STATICALLY " << source->get_id() << " -> " << target->get_id() << std::endl;
@@ -641,7 +641,8 @@ namespace {
         if ((!all_sources_are_inputs && all_targets_are_inputs)
             || !task_matched_src_deps[source].empty())
         {
-            keep_alive = true;
+            // FIXME: Not used any more?
+            // keep_alive = true;
         }
 
         return may_have_dep;

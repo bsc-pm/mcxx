@@ -71,6 +71,11 @@ namespace TL
             {
             }
 
+            Symbol(const TL::Symbol &sym)
+              : _symbol(sym._symbol)
+            {
+            }
+
             //! Gets the type related to this symbol
             Type get_type() const;
 

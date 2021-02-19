@@ -66,7 +66,7 @@ namespace TL
 	// The only 'type's allowed are bool, int and string
 	int SetDTOCompilerPhase::set_dto(const char* data)
 	{
-		char d[strlen(data)];
+		char d[strlen(data) + 1];
 		strcpy (d,data);
 
 		// get variable

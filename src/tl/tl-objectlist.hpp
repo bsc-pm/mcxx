@@ -96,6 +96,15 @@ class ObjectList : public std::vector<T>, public TL::Object
         {
         }
 
+        ObjectList &operator=(const ObjectList &o)
+        {
+            if (this != &o)
+            {
+                this->std::vector<T>::operator=(o);
+            }
+            return *this;
+        }
+
         ObjectList(size_type num, const T& val = T())
             : std::vector<T>(num, val)
         {

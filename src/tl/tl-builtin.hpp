@@ -257,6 +257,7 @@ namespace TL
                 : Object(s), std::string(s)
             {
             }
+
             String( size_type len, const char& ch )
                 : std::string(len, ch)
             {
@@ -280,6 +281,12 @@ namespace TL
             String( const String& str, size_type index, size_type len)
                 : std::string(str, index, len)
             {
+            }
+
+            String &operator=(const String &str)
+            {
+                this->std::string::operator=(str);
+                return *this;
             }
 
             virtual bool is_string() const

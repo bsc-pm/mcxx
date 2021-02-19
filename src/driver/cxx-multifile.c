@@ -127,7 +127,11 @@ void multifile_extract_extended_info(const char* filename)
         char *full_path = realpath(filename, NULL);
 
         char current_directory[1024] = { 0 };
-        getcwd(current_directory, 1023);
+        if (getcwd(current_directory, 1023) == NULL)
+        {
+            fatal_error("Error when obtaining current directory: %s\n",
+                        strerror(errno));
+        }
         current_directory[1023] = '\0';
 
         // Change to temporal directory

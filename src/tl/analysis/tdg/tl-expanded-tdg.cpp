@@ -1303,9 +1303,9 @@ namespace {
                 LoopInfo* li = new LoopInfo(
                         iv, lb, ub, incr, 0);
                 ftdgnode_to_loop_info[n] = li;
-
-                // NOTE: No break here because we still have to traverse inner nodes
+                // NOTE: No break below because we still have to traverse inner nodes
             }
+            // fall-through
             case FTDGCondition:
             {
                 const ObjectList<FTDGNode*>& inner = n->get_inner();

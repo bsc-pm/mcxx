@@ -45,7 +45,7 @@ template < unsigned int num_arguments>
 TL::Symbol get_fortran_intrinsic_symbol(const std::string &name, const Nodecl::List& actual_arguments, bool is_call)
 {
     // Note that this function is template to avoid to use VLAs in C++ or dynamic memory allocation
-    nodecl_t arguments[num_arguments];
+    nodecl_t arguments[num_arguments + 1];
 
     int index = 0;
     for (Nodecl::List::const_iterator it = actual_arguments.begin();
