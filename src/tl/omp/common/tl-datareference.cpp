@@ -211,6 +211,8 @@ namespace TL
                     t = t.references_to();
 
                 _data_ref._data_type = extend_array_type_to_regions(array);
+                if (!_data_ref._is_valid)
+                    return;
 
                 Nodecl::NodeclBase subscripted = array.get_subscripted().no_conv();
 
@@ -323,6 +325,17 @@ namespace TL
 
                 if (subscripted_type.is_any_reference())
                     subscripted_type = subscripted_type.references_to();
+
+                if (subscripted_type.is_expression_dependent())
+                {
+                    sorry_printf_at(array.get_locus(),
+                                    "expression '%s' in dependency is C++ "
+                                    "template-dependent in a "
+                                    "way that cannot be supported",
+                                    array.prettyprint().c_str());
+                    _data_ref._is_valid = false;
+                    return get_error_type();
+                }
 
                 ERROR_CONDITION(!subscripted_type.is_pointer() && !subscripted_type.is_array(), "Invalid type!", 0);
 
