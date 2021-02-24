@@ -539,15 +539,29 @@ namespace TL { namespace OpenMP { namespace Lowering {
         fp_syms_without_data_sharing(priority_clause);
 
         // Constrains
-        constrains["cost"].default_value = const_value_get_unsigned_int(0); // default value
+        // cost
+        constrains["cost"].default_value
+            = const_value_to_nodecl_with_basic_type(
+                const_value_get_unsigned_int(0),
+                get_unsigned_int_type());
         constrains["cost"].min_version = 1;
         fp_syms_without_data_sharing(constrains["cost"].node);
 
-        constrains["stream"].default_value = const_value_get_unsigned_int(0);
+        // stream
+        constrains["stream"].default_value =
+            const_value_to_nodecl_with_basic_type(
+                const_value_get_unsigned_int(0),
+                get_unsigned_int_type());
         constrains["stream"].min_version = 2;
         fp_syms_without_data_sharing(constrains["stream"].node);
 
-        constrains["node"].default_value = const_value_get_unsigned_int(0xFFFF);
+        // node hint
+        TL::Symbol node_default =
+            TL::Scope::get_global_scope().get_symbol_from_name("nanos6_cluster_no_hint");
+        ERROR_CONDITION(!node_default.is_valid(),
+            "Invalid 'nanos6_cluster_no_hint' enumerator\n", 0);
+
+        constrains["node"].default_value = node_default.make_nodecl(/*ref_type*/ true);
         constrains["node"].min_version = 3;
         fp_syms_without_data_sharing(constrains["node"].node);
     }

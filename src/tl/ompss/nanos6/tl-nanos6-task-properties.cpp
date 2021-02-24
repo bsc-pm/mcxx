@@ -2976,19 +2976,9 @@ void TaskProperties::create_task_implementations_info(
                 /* member_literal */ Nodecl::NodeclBase::null(),
                 member.get_type());
 
-            Nodecl::NodeclBase expr;
-
-            if (!it.second.node.is_null()) // value was specified
-            {
-                expr = Nodecl::Utils::deep_copy(
-                    it.second.node, unpacked_fun_inside_scope, symbol_map);
-            }
-            else
-            {
-                expr = const_value_to_nodecl_with_basic_type(
-                    it.second.default_value,
-                    member.get_type().no_ref().get_internal_type());
-            }
+            Nodecl::NodeclBase expr = Nodecl::Utils::deep_copy(
+				(it.second.node.is_null() ? it.second.default_value : it.second.node),
+				unpacked_fun_inside_scope, symbol_map);
 
             if (IS_FORTRAN_LANGUAGE)
             {
