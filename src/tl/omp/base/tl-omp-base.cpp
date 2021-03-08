@@ -841,6 +841,10 @@ namespace TL { namespace OpenMP {
                 "cost", "Its cost will be",
                 directive, directive, execution_environment);
 
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Onready>(
+                "onready", "Its onready will be",
+                directive, directive, execution_environment);
+
         pragma_line.diagnostic_unused_clauses();
 
         Nodecl::NodeclBase body_of_task =
@@ -1630,6 +1634,10 @@ namespace TL { namespace OpenMP {
 
         handle_generic_clause_with_one_argument<Nodecl::OmpSs::Cost>(
                 "cost", "Its cost will be",
+                directive, directive, execution_environment);
+
+        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Onready>(
+                "onready", "Its onready will be",
                 directive, directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();

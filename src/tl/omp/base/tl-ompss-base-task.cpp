@@ -663,6 +663,13 @@ namespace TL { namespace OmpSs {
                         function_task_info.get_task_label().get_text()));
         }
 
+        if (!function_task_info.get_onready_clause_expression().is_null())
+        {
+            result_list.append(
+                    Nodecl::OmpSs::Onready::make(function_task_info.get_onready_clause_expression().shallow_copy())
+                    );
+        }
+
         result_list.append(
                 Nodecl::OpenMP::FunctionTaskParsingContext::make(
                     Nodecl::PragmaContext::make(function_task_info.get_parsing_scope()),

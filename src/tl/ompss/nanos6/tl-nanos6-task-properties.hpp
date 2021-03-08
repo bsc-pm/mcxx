@@ -130,6 +130,12 @@ namespace TL { namespace Nanos6 {
             TL::Symbol create_dependences_unpacked_function(
                     const std::string &common_name);
 
+            //! Generate the complete function chain for the onready and
+            //! return the outline function symbol
+            TL::Symbol create_onready_function();
+            TL::Symbol create_onready_unpacked_function(
+                    const std::string& common_name);
+
             //! Generate the complete function chain for the priority and
             //! return the outline function symbol
             TL::Symbol create_priority_function();

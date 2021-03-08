@@ -97,6 +97,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         Nodecl::NodeclBase cost_clause;
         Nodecl::NodeclBase priority_clause;
         Nodecl::NodeclBase lint_verified;
+        Nodecl::NodeclBase onready_clause;
         Nodecl::NodeclBase grainsize; // Taskloop
         Nodecl::NodeclBase chunksize; // Taskloop
 
