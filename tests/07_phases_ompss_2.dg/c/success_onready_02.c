@@ -1,10 +1,11 @@
 /*
 <testinfo>
 test_generator="config/mercurium-ompss-2"
+test_exec_fail=yes
 </testinfo>
 */
 
-#include <assert.h>
+#include <stdlib.h>
 
 void bar(int *n) {
     *n = 77;
@@ -15,5 +16,6 @@ int main() {
     #pragma oss task onready(bar(&n)) shared(n)
     {}
     #pragma oss taskwait
-    assert(n == 77);
+    if (n != 77)
+        exit(1);
 }
