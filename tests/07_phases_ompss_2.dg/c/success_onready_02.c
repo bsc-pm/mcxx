@@ -5,8 +5,6 @@ test_exec_fail=yes
 </testinfo>
 */
 
-#include <stdlib.h>
-
 void bar(int *n) {
     *n = 77;
 }
@@ -17,5 +15,6 @@ int main() {
     {}
     #pragma oss taskwait
     if (n != 77)
-        exit(1);
+        return 1;
+    return 0;
 }
