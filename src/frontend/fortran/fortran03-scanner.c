@@ -249,6 +249,7 @@ struct special_token_table_tag
 } special_tokens[] =
 // Keep this table sorted by the 'keyword' field!
 {
+    {"@CALL@", SUBPARSE_CALL, 0 },
     {"@END GLOBAL@", END_GLOBAL, 0 },
     {"@EXPRESSION@", SUBPARSE_EXPRESSION, 0 },
     {"@GLOBAL@", GLOBAL, 0 },

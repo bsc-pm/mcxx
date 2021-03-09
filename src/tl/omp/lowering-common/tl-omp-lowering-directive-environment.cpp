@@ -368,6 +368,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 _env.cost_clause = n.get_cost();
             }
 
+            virtual void visit(const Nodecl::OmpSs::Onready &n)
+            {
+                _env.onready_clause = n.get_onready();
+            }
+
             virtual void visit(const Nodecl::OpenMP::Grainsize &n)
             {
                 _env.grainsize = n.get_grainsize();
@@ -519,6 +524,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
         // Other task clauses
         fp_syms_without_data_sharing(cost_clause);
+        fp_syms_without_data_sharing(onready_clause);
         fp_syms_without_data_sharing(priority_clause);
     }
 

@@ -1,0 +1,29 @@
+! <testinfo>
+! test_generator=config/mercurium-ompss-2
+! test_exec_fail=yes
+! </testinfo>
+
+SUBROUTINE BAR(X)
+IMPLICIT NONE
+INTEGER, INTENT(INOUT) :: X
+X = 77
+END SUBROUTINE
+
+!$OSS TASK ONREADY(BAR(X))
+SUBROUTINE FOO(X)
+IMPLICIT NONE
+INTEGER, INTENT(IN) :: X
+END SUBROUTINE
+
+PROGRAM P
+IMPLICIT NONE
+INTEGER :: X
+
+X = 5
+
+CALL FOO(X)
+!$OSS TASKWAIT
+
+IF (X /= 77) STOP 1
+
+END PROGRAM

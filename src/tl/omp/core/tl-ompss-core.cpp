@@ -681,6 +681,31 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        PragmaCustomClause onready_clause = pragma_line.get_clause("onready");
+        if (onready_clause.is_defined())
+        {
+            ObjectList<std::string> raw_list = onready_clause.get_raw_arguments();
+            if (raw_list.size() != 1)
+            {
+                error_printf_at(construct.get_locus(), "clause 'onready' requires just one argument\n");
+            }
+            else
+            {
+                TL::Source src;
+                src << raw_list[0];
+                ObjectList<Nodecl::NodeclBase> expr_list;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    expr_list.insert(src.parse_fortran_call_expression(parsing_scope));
+                }
+                else
+                {
+                    expr_list.insert(src.parse_expression(parsing_scope));
+                }
+                task_info.set_onready_clause_expression(update_clauses(expr_list, function_sym)[0]);
+            }
+        }
+
         PragmaCustomClause tied_clause = pragma_line.get_clause("tied");
         PragmaCustomClause untied_clause = pragma_line.get_clause("untied");
 

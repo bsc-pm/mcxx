@@ -1188,6 +1188,33 @@ void TaskProperties::create_task_implementations_info(
                         field_register_depinfo.get_type()));
         }
 
+        if (Interface::family_is_at_least("nanos6_task_info_contents", 3))
+        {
+            // .onready_action
+            {
+                TL::Symbol onready_function = create_onready_function();
+                Nodecl::NodeclBase field_onready_action = get_field("onready_action");
+                Nodecl::NodeclBase init_onready_action;
+                if (onready_function.is_valid())
+                {
+                    init_onready_action = onready_function.make_nodecl(/* set_ref_type */ true);
+                    init_onready_action = Nodecl::Conversion::make(
+                            init_onready_action,
+                            field_onready_action.get_type().no_ref());
+                    init_onready_action.set_text("C");
+                }
+                else
+                {
+                    init_onready_action = const_value_to_nodecl(const_value_get_signed_int(0));
+                }
+
+                field_init.append(
+                        Nodecl::FieldDesignator::make(field_onready_action,
+                            init_onready_action,
+                            field_onready_action.get_type()));
+            }
+        }
+
         // .get_priority
         {
             Nodecl::NodeclBase field_get_priority = get_field("get_priority");
@@ -4273,6 +4300,108 @@ void TaskProperties::create_task_implementations_info(
                 unpacked_fun_param_types);
 
         return dependences_function;
+    }
+
+    TL::Symbol TaskProperties::create_onready_unpacked_function(
+            const std::string& common_name)
+    {
+        TL::ObjectList<std::string> unpacked_fun_param_names;
+        TL::ObjectList<TL::Type> unpacked_fun_param_types;
+        std::map<TL::Symbol, std::string> symbols_to_param_names;
+
+        std::string unpacked_fun_name = get_new_name("nanos6_unpacked_" + common_name);
+
+        AddParameter add_params_functor(
+            /* in */ _environment_capture,
+            /* out */ unpacked_fun_param_names,
+            /* out */ unpacked_fun_param_types,
+            /* out */ symbols_to_param_names);
+
+        _env.captured_value.map(add_params_functor);
+        _env.private_.map(add_params_functor);
+        _env.shared.map(add_params_functor);
+
+        TL::Symbol unpacked_function = SymbolUtils::new_function_symbol(
+                _related_function,
+                unpacked_fun_name,
+                TL::Type::get_void_type(),
+                unpacked_fun_param_names,
+                unpacked_fun_param_types);
+
+        Nodecl::NodeclBase unpacked_function_code, unpacked_empty_stmt;
+        SymbolUtils::build_empty_body_for_function(
+            unpacked_function, unpacked_function_code, unpacked_empty_stmt);
+
+        TL::Scope unpacked_fun_inside_scope = unpacked_function.get_related_scope();
+
+        fortran_add_types(unpacked_fun_inside_scope);
+
+        // Prepare deep copy and remember those parameters that need fixup
+        Nodecl::Utils::SimpleSymbolMap symbol_map;
+        TL::ObjectList<TL::Symbol> parameters_to_update_type;
+
+        MapSymbols map_symbols_functor(
+                unpacked_fun_inside_scope,
+                symbols_to_param_names,
+                // Out
+                parameters_to_update_type,
+                symbol_map);
+
+        _env.captured_value.map(map_symbols_functor);
+        _env.private_.map(map_symbols_functor);
+        _env.shared.map(map_symbols_functor);
+
+        update_function_type_if_needed(
+                unpacked_function, parameters_to_update_type, symbol_map);
+
+        if (IS_FORTRAN_LANGUAGE)
+        {
+            // Insert extra symbol declarations and add them to the symbol map
+            // (e.g. functions and subroutines declared in other scopes)
+            Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
+                    symbol_map,
+                    unpacked_fun_inside_scope,
+                    _related_function);
+            fun_visitor.insert_extra_symbols(_env.onready_clause);
+        }
+
+        Nodecl::NodeclBase onready_expr =
+            Nodecl::Utils::deep_copy(_env.onready_clause, unpacked_fun_inside_scope, symbol_map);
+
+        Nodecl::NodeclBase expr_stmt = Nodecl::ExpressionStatement::make(onready_expr);
+
+        unpacked_empty_stmt.replace(expr_stmt);
+
+        Nodecl::Utils::prepend_to_enclosing_top_level_location(
+                _task_body,
+                unpacked_function_code);
+
+        return unpacked_function;
+    }
+
+    TL::Symbol TaskProperties::create_onready_function()
+    {
+        // Skip this function if the current task doesn't have a onready clause
+        if (_env.onready_clause.is_null())
+            return TL::Symbol::invalid();
+
+        const std::string common_name = "onready";
+        TL::Symbol unpacked_function =
+            create_onready_unpacked_function(common_name);
+
+        TL::ObjectList<std::string> unpacked_fun_param_names(1);
+        TL::ObjectList<TL::Type> unpacked_fun_param_types(1);
+
+        unpacked_fun_param_names[0] = "arg";
+        unpacked_fun_param_types[0] = _info_structure.get_lvalue_reference_to();
+
+        TL::Symbol outline_function = create_outline_function(
+                unpacked_function,
+                common_name,
+                unpacked_fun_param_names,
+                unpacked_fun_param_types);
+
+        return outline_function;
     }
 
     TL::Symbol TaskProperties::create_priority_unpacked_function(

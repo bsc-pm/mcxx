@@ -199,6 +199,10 @@ namespace TL
                         const TL::PragmaCustomStatement& directive,
                         Nodecl::List& execution_environment);
 
+                void handle_onready_clause(
+                        const TL::PragmaCustomStatement& directive,
+                        Nodecl::List& execution_environment);
+
                 void bind_omp_constructs();
                 void bind_oss_constructs();
 

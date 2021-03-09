@@ -167,6 +167,7 @@ namespace TL { namespace OmpSs {
             Nodecl::NodeclBase _final_clause_cond_expr;
             Nodecl::NodeclBase _priority_clause_expr;
             Nodecl::NodeclBase _cost_clause_expr;
+            Nodecl::NodeclBase _onready_clause_expr;
             Nodecl::NodeclBase _task_label;
 
             TL::Scope _parsing_scope;
@@ -214,6 +215,9 @@ namespace TL { namespace OmpSs {
 
             void set_cost_clause_expression(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_cost_clause_expression() const;
+
+            void set_onready_clause_expression(Nodecl::NodeclBase expr);
+            Nodecl::NodeclBase get_onready_clause_expression() const;
 
             void set_task_label(Nodecl::NodeclBase expr);
             Nodecl::NodeclBase get_task_label() const;

@@ -37,6 +37,7 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         bool is_untied;
         Nodecl::NodeclBase priority;
         Nodecl::NodeclBase cost;
+        Nodecl::NodeclBase onready;
 
         // This attribute only for function task. Inline tasks will never have
         // a node here because tl-omp-base.cpp has already lowered the 'if'
@@ -64,6 +65,11 @@ struct TaskEnvironmentVisitor : public Nodecl::ExhaustiveVisitor<void>
         void visit(const Nodecl::OmpSs::Cost& cost_)
         {
             this->cost = cost_.get_cost();
+        }
+
+        void visit(const Nodecl::OmpSs::Onready& onready_)
+        {
+            this->onready = onready_.get_onready();
         }
 
         void visit(const Nodecl::OpenMP::Untied& untied)
