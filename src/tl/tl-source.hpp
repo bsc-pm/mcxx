@@ -342,6 +342,9 @@ namespace TL
             //! Parse an expression
             Nodecl::NodeclBase parse_expression(ReferenceScope sc, ParseFlags flags = DEFAULT);
 
+            //! Parse an fortran call to subroutine without 'call' prefix
+            Nodecl::NodeclBase parse_fortran_call_expression(ReferenceScope sc, ParseFlags flags = DEFAULT);
+
             //! Parse an member declaration
             /*!
              * This is C++ only. This parses a new member declaration

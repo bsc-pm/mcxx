@@ -744,6 +744,38 @@ namespace TL
         return Nodecl::NodeclBase::null();
     }
 
+    Nodecl::NodeclBase Source::parse_fortran_call_expression(ReferenceScope ref_scope, ParseFlags parse_flags)
+    {
+        switch ((int)this->source_language.get_language())
+        {
+            case SourceLanguage::C :
+            {
+                internal_error("Not valid for C", 0);
+                break;
+            }
+            case SourceLanguage::CPlusPlus :
+            {
+                internal_error("Not valid for C++", 0);
+                break;
+            }
+            case SourceLanguage::Fortran :
+            {
+                return parse_common(ref_scope, parse_flags, "@CALL@",
+                        mf03_prepare_string_for_scanning,
+                        mf03parse,
+                        fortran_check_expression_adapter,
+                        decl_context_identity);
+                break;
+            }
+            default:
+            {
+                internal_error("Code unreachable", 0);
+            }
+        }
+
+        return Nodecl::NodeclBase::null();
+    }
+
     Nodecl::NodeclBase Source::parse_id_expression(ReferenceScope ref_scope, ParseFlags parse_flags)
     {
         switch ((int)this->source_language.get_language())

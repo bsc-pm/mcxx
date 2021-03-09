@@ -841,9 +841,7 @@ namespace TL { namespace OpenMP {
                 "cost", "Its cost will be",
                 directive, directive, execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Onready>(
-                "onready", "Its onready will be",
-                directive, directive, execution_environment);
+        handle_onready_clause(directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -1636,9 +1634,7 @@ namespace TL { namespace OpenMP {
                 "cost", "Its cost will be",
                 directive, directive, execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Onready>(
-                "onready", "Its onready will be",
-                directive, directive, execution_environment);
+        handle_onready_clause(directive, execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -4614,6 +4610,57 @@ namespace TL { namespace OpenMP {
                 *_omp_report_file
                     << OpenMP::Report::indent
                     << "It does not have any label\n";
+            }
+        }
+    }
+
+    void Base::handle_onready_clause(
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::List& execution_environment)
+    {
+        PragmaCustomClause clause = directive.get_pragma_line().get_clause("onready");
+        if (clause.is_defined())
+        {
+            ObjectList<std::string> raw_list = clause.get_raw_arguments();
+            if (raw_list.size() == 1)
+            {
+                TL::Source src;
+                src << raw_list[0];
+                Nodecl::NodeclBase expr;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    expr = src.parse_fortran_call_expression(directive.retrieve_context());
+                }
+                else
+                {
+                    expr = src.parse_expression(directive.retrieve_context());
+                }
+
+                execution_environment.append(Nodecl::OmpSs::Onready::make(expr.shallow_copy(), clause.get_locus()));
+
+                if (emit_omp_report())
+                {
+                    *_omp_report_file
+                        << OpenMP::Report::indent
+                        << "Its onready will be" << " "
+                        << "'" << raw_list[0] << "'\n"
+                        ;
+                }
+            }
+            else
+            {
+                error_printf_at(directive.get_locus(),
+                        "invalid number of arguments in '%s' clause\n", "onready");
+            }
+        }
+        else
+        {
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "'" << "onready" << "' was not present on the construct\n"
+                    ;
             }
         }
     }

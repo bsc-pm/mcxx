@@ -2,6 +2,7 @@
 
 %type<ast> subparsing
 
+%token<token_atrib> SUBPARSE_CALL "<subparse-call>"
 %token<token_atrib> SUBPARSE_PROGRAM_UNIT "<subparse-program-unit>"
 %token<token_atrib> SUBPARSE_EXPRESSION "<subparse-expression>"
 %token<token_atrib> SUBPARSE_STATEMENT "<subparse-statement>"
@@ -29,6 +30,11 @@ subparsing : SUBPARSE_STATEMENT EOS block
 }
 | SUBPARSE_PROGRAM_UNIT EOS program_unit_seq
 {
+    $$ = $3;
+}
+| SUBPARSE_CALL EOS function_reference EOS
+{
+    ast_set_text($3, "call");
     $$ = $3;
 }
 ;
