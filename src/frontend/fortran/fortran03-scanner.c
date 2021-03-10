@@ -262,8 +262,8 @@ struct special_token_table_tag
     {"@PROGRAM-UNIT@", SUBPARSE_PROGRAM_UNIT, 0 },
     {"@STATEMENT@", SUBPARSE_STATEMENT, 0 },
     {"@SYMBOL-LITERAL-REF@", SYMBOL_LITERAL_REF, 0 },
-    {"@TYPEDEF@", TYPEDEF, 0 },
     {"@TYPE-LITERAL-REF@", TYPE_LITERAL_REF, 0 },
+    {"@TYPEDEF@", TYPEDEF, 0 },
 };
 
 static int special_token_table_comp(
