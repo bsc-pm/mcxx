@@ -1138,6 +1138,11 @@ void TaskProperties::create_task_implementations_info(
         TL::Symbol priority_function = create_priority_function();
         TL::Symbol destroy_function = create_destroy_function();
         TL::Symbol duplicate_function = create_duplicate_function();
+        TL::Symbol onready_function;
+        if (Interface::family_is_at_least("nanos6_task_info_contents", 3))
+        {
+            onready_function = create_onready_function();
+        }
 
         TL::Symbol task_info_struct = get_nanos6_class_symbol("nanos6_task_info_t");
         std::string task_info_name = get_new_name("task_info_var");
@@ -1192,7 +1197,6 @@ void TaskProperties::create_task_implementations_info(
         {
             // .onready_action
             {
-                TL::Symbol onready_function = create_onready_function();
                 Nodecl::NodeclBase field_onready_action = get_field("onready_action");
                 Nodecl::NodeclBase init_onready_action;
                 if (onready_function.is_valid())
