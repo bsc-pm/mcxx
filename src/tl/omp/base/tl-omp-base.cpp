@@ -833,15 +833,14 @@ namespace TL { namespace OpenMP {
                 "final", "It may be a final task depending on",
                 directive, directive, execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OpenMP::Priority>(
-                "priority", "Its priority will be",
-                directive, directive, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OpenMP::Priority>(
+            "Its priority will be", directive, ds.get_priority_expr(), execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Cost>(
-                "cost", "Its cost will be",
-                directive, directive, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OmpSs::Cost>(
+            "Its cost will be", directive, ds.get_cost_expr(), execution_environment);
 
-        handle_onready_clause(directive, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OmpSs::Onready>(
+            "Its onready will be", directive, ds.get_onready_expr(), execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -1479,9 +1478,8 @@ namespace TL { namespace OpenMP {
                 "final", "It may be a final task depending on",
                 directive, context, execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OpenMP::Priority>(
-                "priority", "Its priority will be",
-                directive, context, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OpenMP::Priority>(
+            "Its priority will be", directive, ds.get_priority_expr(), execution_environment);
 
 
         pragma_line.diagnostic_unused_clauses();
@@ -1626,15 +1624,14 @@ namespace TL { namespace OpenMP {
                 "final", "It may be a final task depending on",
                 directive, context, execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OpenMP::Priority>(
-                "priority", "Its priority will be",
-                directive, context, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OpenMP::Priority>(
+            "Its priority will be", directive, ds.get_priority_expr(), execution_environment);
 
-        handle_generic_clause_with_one_argument<Nodecl::OmpSs::Cost>(
-                "cost", "Its cost will be",
-                directive, directive, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OmpSs::Cost>(
+            "Its cost will be", directive, ds.get_cost_expr(), execution_environment);
 
-        handle_onready_clause(directive, execution_environment);
+        handle_already_analyzed_generic_clause<Nodecl::OmpSs::Onready>(
+            "Its onready will be", directive, ds.get_onready_expr(), execution_environment);
 
         pragma_line.diagnostic_unused_clauses();
 
@@ -3652,6 +3649,30 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        {
+            Nodecl::NodeclBase priority_expr = data_sharing_env.get_priority_expr();
+            if (!priority_expr.is_null())
+            {
+                result_list.append(Nodecl::OpenMP::Priority::make(priority_expr, locus));
+            }
+        }
+
+        {
+            Nodecl::NodeclBase cost_expr = data_sharing_env.get_cost_expr();
+            if (!cost_expr.is_null())
+            {
+                result_list.append(Nodecl::OmpSs::Cost::make(cost_expr, locus));
+            }
+        }
+
+        {
+            Nodecl::NodeclBase onready_expr = data_sharing_env.get_onready_expr();
+            if (!onready_expr.is_null())
+            {
+                result_list.append(Nodecl::OmpSs::Onready::make(onready_expr, locus));
+            }
+        }
+
         if (!ignore_target_info)
         {
             // Build the tree which contains the target information
@@ -4538,6 +4559,28 @@ namespace TL { namespace OpenMP {
         }
     }
 
+    template < typename T>
+    void Base::handle_already_analyzed_generic_clause(
+            const std::string &omp_report_message,
+            const TL::PragmaCustomStatement& directive,
+            Nodecl::NodeclBase node,
+            Nodecl::List& execution_environment)
+    {
+        if (!node.is_null())
+        {
+            execution_environment.append(
+                T::make(node.shallow_copy(), directive.get_locus()));
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << omp_report_message << " "
+                    << "'" << node.prettyprint() << "'\n"
+                    ;
+            }
+        }
+    }
+
     void Base::handle_label_clause(
             const TL::PragmaCustomStatement& directive,
             Nodecl::List& execution_environment)
@@ -4610,57 +4653,6 @@ namespace TL { namespace OpenMP {
                 *_omp_report_file
                     << OpenMP::Report::indent
                     << "It does not have any label\n";
-            }
-        }
-    }
-
-    void Base::handle_onready_clause(
-            const TL::PragmaCustomStatement& directive,
-            Nodecl::List& execution_environment)
-    {
-        PragmaCustomClause clause = directive.get_pragma_line().get_clause("onready");
-        if (clause.is_defined())
-        {
-            ObjectList<std::string> raw_list = clause.get_raw_arguments();
-            if (raw_list.size() == 1)
-            {
-                TL::Source src;
-                src << raw_list[0];
-                Nodecl::NodeclBase expr;
-                if (IS_FORTRAN_LANGUAGE)
-                {
-                    expr = src.parse_fortran_call_expression(directive.retrieve_context());
-                }
-                else
-                {
-                    expr = src.parse_expression(directive.retrieve_context());
-                }
-
-                execution_environment.append(Nodecl::OmpSs::Onready::make(expr.shallow_copy(), clause.get_locus()));
-
-                if (emit_omp_report())
-                {
-                    *_omp_report_file
-                        << OpenMP::Report::indent
-                        << "Its onready will be" << " "
-                        << "'" << raw_list[0] << "'\n"
-                        ;
-                }
-            }
-            else
-            {
-                error_printf_at(directive.get_locus(),
-                        "invalid number of arguments in '%s' clause\n", "onready");
-            }
-        }
-        else
-        {
-            if (emit_omp_report())
-            {
-                *_omp_report_file
-                    << OpenMP::Report::indent
-                    << "'" << "onready" << "' was not present on the construct\n"
-                    ;
             }
         }
     }

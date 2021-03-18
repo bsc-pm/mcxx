@@ -179,6 +179,14 @@ namespace TL
                         DataEnvironment& data_environment,
                         bool there_is_default_clause);
 
+                // Helper function to analyze a list of symbols
+                // like if they where inside task body
+                void get_data_implicit_attributes_of_nonlocal_symbols(
+                        const ObjectList<Nodecl::Symbol> &nonlocal_symbols_occurrences,
+                        DataEnvironment& data_environment,
+                        DataSharingAttribute default_data_attr,
+                        bool there_is_default_clause);
+
                 void get_data_implicit_attributes_task(
                         TL::PragmaCustomStatement construct,
                         DataEnvironment& data_environment,
@@ -219,6 +227,34 @@ namespace TL
                         DataSharingAttribute default_data_attr,
                         DataEnvironment& data_environment,
                         ObjectList<Symbol>& extra_symbols);
+
+                // This function handles clauses of a task construct
+                // like if they where in task body,
+                // adding new information to the data environment
+                void handle_task_body_like_clauses(
+                        TL::PragmaCustomStatement construct,
+                        DataEnvironment& data_environment,
+                        DataSharingAttribute default_data_attr,
+                        bool there_is_default_clause);
+
+                // This function handles clauses that have one
+                // expression
+                void handle_clause_with_one_expression(
+                        const TL::PragmaCustomStatement& directive,
+                        const std::string &clause_name,
+                        Nodecl::NodeclBase parsing_context,
+                        DataEnvironment &data_environment,
+                        void (DataEnvironment::*set_clause)(const Nodecl::NodeclBase&),
+                        bool there_is_default_clause,
+                        DataSharingAttribute default_data_attr);
+
+                // This handles onready clause thaking into account
+                // the special case of fortran
+                void handle_onready_clause_expression(
+                        const TL::PragmaCustomStatement& directive,
+                        DataEnvironment &data_environment,
+                        bool there_is_default_clause,
+                        DataSharingAttribute default_data_attr);
 
                 // Helper function that handles the basic set of dependences:
                 // in, out and inout

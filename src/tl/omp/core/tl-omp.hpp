@@ -272,6 +272,10 @@ namespace OpenMP
 
             ObjectList<DependencyItem> _dependency_items;
 
+            Nodecl::NodeclBase _cost_expr;
+            Nodecl::NodeclBase _priority_expr;
+            Nodecl::NodeclBase _onready_expr;
+
             TL::OmpSs::TargetInfo _target_info;
 
             bool _is_parallel;
@@ -396,6 +400,18 @@ namespace OpenMP
             //! Adds dependence to the data environment
             void add_dependence(const DependencyItem &dependency_item);
             void get_all_dependences(ObjectList<DependencyItem>& dependency_items);
+
+            //! Sets cost expr
+            void set_cost_expr(const Nodecl::NodeclBase &node);
+            Nodecl::NodeclBase get_cost_expr();
+
+            //! Sets priority expr
+            void set_priority_expr(const Nodecl::NodeclBase &node);
+            Nodecl::NodeclBase get_priority_expr();
+
+            //! Sets onready expr
+            void set_onready_expr(const Nodecl::NodeclBase &node);
+            Nodecl::NodeclBase get_onready_expr();
 
             //! Sets a device mapping for a symbol
             /*!

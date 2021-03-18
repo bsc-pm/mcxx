@@ -215,7 +215,91 @@ namespace TL { namespace OpenMP {
             }
     };
 
+    void Core::handle_task_body_like_clauses(
+            TL::PragmaCustomStatement construct,
+            DataEnvironment& data_environment,
+            DataSharingAttribute default_data_attr,
+            bool there_is_default_clause)
+    {
+        handle_clause_with_one_expression(
+            construct, "priority", construct, data_environment, &DataEnvironment::set_priority_expr,
+            there_is_default_clause, default_data_attr);
 
+        if (in_ompss_mode())
+        {
+            handle_clause_with_one_expression(
+                construct, "cost", construct, data_environment, &DataEnvironment::set_cost_expr,
+                there_is_default_clause, default_data_attr);
+            handle_onready_clause_expression(
+                construct, data_environment, there_is_default_clause, default_data_attr);
+        }
+    }
+
+    void Core::handle_clause_with_one_expression(
+            const TL::PragmaCustomStatement& directive,
+            const std::string &clause_name,
+            Nodecl::NodeclBase parsing_context,
+            DataEnvironment &data_environment,
+            void (DataEnvironment::*set_clause)(const Nodecl::NodeclBase&),
+            bool there_is_default_clause,
+            DataSharingAttribute default_data_attr)
+    {
+        PragmaCustomClause clause = directive.get_pragma_line().get_clause(clause_name);
+        if (clause.is_defined())
+        {
+            ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions(parsing_context);
+            if (expr_list.size() == 1)
+            {
+                (data_environment.*set_clause)(expr_list[0]);
+                ObjectList<Nodecl::Symbol> nonlocal_symbols_occurrences
+                    = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(expr_list[0]);
+                get_data_implicit_attributes_of_nonlocal_symbols(
+                    nonlocal_symbols_occurrences, data_environment, default_data_attr, there_is_default_clause);
+            }
+            else
+            {
+                error_printf_at(directive.get_locus(),
+                        "invalid number of arguments in '%s' clause\n", clause_name.c_str());
+            }
+        }
+    }
+
+    void Core::handle_onready_clause_expression(
+            const TL::PragmaCustomStatement& directive,
+            DataEnvironment &data_environment,
+            bool there_is_default_clause,
+            DataSharingAttribute default_data_attr)
+    {
+        PragmaCustomClause onready = directive.get_pragma_line().get_clause("onready");
+        TL::Scope parsing_scope = directive.retrieve_context();
+        if (onready.is_defined())
+        {
+            ObjectList<std::string> raw_list = onready.get_raw_arguments();
+            if (raw_list.size() != 1)
+            {
+                error_printf_at(directive.get_locus(), "clause 'onready' requires just one argument\n");
+            }
+            else
+            {
+                TL::Source src;
+                src << raw_list[0];
+                ObjectList<Nodecl::NodeclBase> expr_list;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    expr_list.insert(src.parse_fortran_call_expression(directive.retrieve_context()));
+                }
+                else
+                {
+                    expr_list.insert(src.parse_expression(directive.retrieve_context()));
+                }
+                data_environment.set_onready_expr(expr_list[0]);
+                ObjectList<Nodecl::Symbol> nonlocal_symbols_occurrences
+                    = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(expr_list[0]);
+                get_data_implicit_attributes_of_nonlocal_symbols(
+                    nonlocal_symbols_occurrences, data_environment, default_data_attr, there_is_default_clause);
+            }
+        }
+    }
 
     // We should update the clauses of the function task because They may be
     // written in terms of the function declaration. Example:
@@ -921,8 +1005,11 @@ namespace TL { namespace OpenMP {
         ompss_get_target_info(pragma_line, data_environment);
 
         get_data_implicit_attributes_task(construct, data_environment, default_data_attr, there_is_default_clause);
-        get_data_extra_symbols(data_environment, extra_symbols);
 
+        // Handle cost/priority/onready before extra symbols
+        handle_task_body_like_clauses(construct, data_environment, default_data_attr, there_is_default_clause);
+
+        get_data_extra_symbols(data_environment, extra_symbols);
 
         // Checking the environment of a task our FE may have generated some extra symbols
         // (e.g. saved expressions). The initialization of those symbols must be added
