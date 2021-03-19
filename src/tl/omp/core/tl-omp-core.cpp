@@ -1546,41 +1546,12 @@ namespace TL { namespace OpenMP {
         get_data_implicit_attributes(construct, default_data_attr, data_environment, there_is_default_clause);
     }
 
-    // Data sharing computation for tasks.
-    //
-    // Tasks have slightly different requirements to other OpenMP constructs so their code
-    // can't be merged easily
-    void Core::get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
+    void Core::get_data_implicit_attributes_of_nonlocal_symbols(
+            const ObjectList<Nodecl::Symbol> &nonlocal_symbols_occurrences,
             DataEnvironment& data_environment,
             DataSharingAttribute default_data_attr,
             bool there_is_default_clause)
     {
-        Nodecl::NodeclBase statement = construct.get_statements();
-
-        FORTRAN_LANGUAGE()
-        {
-            // A loop iteration variable for a sequential loop in a parallel or task construct 
-            // is private in the innermost such construct that encloses the loop
-            SequentialLoopsVariables sequential_loops;
-            sequential_loops.walk(statement);
-
-            for (ObjectList<TL::Symbol>::iterator it = sequential_loops.symbols.begin();
-                    it != sequential_loops.symbols.end();
-                    it++)
-            {
-                TL::Symbol &sym(*it);
-                DataSharingValue data_sharing = data_environment.get_data_sharing(sym, /* check_enclosing */ false);
-
-                if (data_sharing.attr == DS_UNDEFINED)
-                {
-                    data_environment.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
-                            "induction variable of a sequential loop enclosed by a task");
-                }
-            }
-        }
-
-        ObjectList<Nodecl::Symbol> nonlocal_symbols_occurrences
-            = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
         ObjectList<TL::Symbol> nonlocal_symbols
             = nonlocal_symbols_occurrences.map<TL::Symbol>(
                 &Nodecl::NodeclBase::get_symbol);
@@ -1798,7 +1769,49 @@ namespace TL { namespace OpenMP {
                         "this is an assumed size array that was attempted to be privatized");
             }
         }
+    }
 
+    // Data sharing computation for tasks.
+    //
+    // Tasks have slightly different requirements to other OpenMP constructs so their code
+    // can't be merged easily
+    void Core::get_data_implicit_attributes_task(TL::PragmaCustomStatement construct,
+            DataEnvironment& data_environment,
+            DataSharingAttribute default_data_attr,
+            bool there_is_default_clause)
+    {
+        Nodecl::NodeclBase statement = construct.get_statements();
+
+        FORTRAN_LANGUAGE()
+        {
+            // A loop iteration variable for a sequential loop in a parallel or task construct 
+            // is private in the innermost such construct that encloses the loop
+            SequentialLoopsVariables sequential_loops;
+            sequential_loops.walk(statement);
+
+            for (ObjectList<TL::Symbol>::iterator it = sequential_loops.symbols.begin();
+                    it != sequential_loops.symbols.end();
+                    it++)
+            {
+                TL::Symbol &sym(*it);
+                DataSharingValue data_sharing = data_environment.get_data_sharing(sym, /* check_enclosing */ false);
+
+                if (data_sharing.attr == DS_UNDEFINED)
+                {
+                    data_environment.set_data_sharing(sym, DS_PRIVATE, DSK_IMPLICIT,
+                            "induction variable of a sequential loop enclosed by a task");
+                }
+            }
+        }
+
+        ObjectList<Nodecl::Symbol> nonlocal_symbols_occurrences
+            = Nodecl::Utils::get_nonlocal_symbols_first_occurrence(statement);
+        get_data_implicit_attributes_of_nonlocal_symbols(
+            nonlocal_symbols_occurrences, data_environment, default_data_attr, there_is_default_clause);
+
+        ObjectList<TL::Symbol> nonlocal_symbols
+            = nonlocal_symbols_occurrences.map<TL::Symbol>(
+                &Nodecl::NodeclBase::get_symbol);
         get_data_implicit_attributes_of_indirectly_accessible_symbols(construct, data_environment, nonlocal_symbols);
     }
 
@@ -1916,7 +1929,6 @@ namespace TL { namespace OpenMP {
             }
         }
     }
-
 
     // Handlers
     void Core::parallel_handler_pre(TL::PragmaCustomStatement construct)
@@ -2095,6 +2107,9 @@ namespace TL { namespace OpenMP {
 
         get_data_implicit_attributes_task(construct, data_environment,
                 default_data_attr, there_is_default_clause);
+
+        // Handle cost/priority/onready before extra symbols
+        handle_task_body_like_clauses(construct, data_environment, default_data_attr, there_is_default_clause);
 
         get_data_extra_symbols(data_environment, extra_symbols);
 

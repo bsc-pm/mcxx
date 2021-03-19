@@ -195,11 +195,14 @@ namespace TL
                         Nodecl::NodeclBase parsing_context,
                         Nodecl::List& execution_environment);
 
-                void handle_label_clause(
+                template < typename T>
+                void handle_already_analyzed_generic_clause(
+                        const std::string &omp_report_message,
                         const TL::PragmaCustomStatement& directive,
+                        Nodecl::NodeclBase node,
                         Nodecl::List& execution_environment);
 
-                void handle_onready_clause(
+                void handle_label_clause(
                         const TL::PragmaCustomStatement& directive,
                         Nodecl::List& execution_environment);
 

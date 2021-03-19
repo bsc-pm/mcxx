@@ -324,6 +324,33 @@ namespace TL
             dependency_items = _dependency_items;
         }
 
+        void DataEnvironment::set_cost_expr(const Nodecl::NodeclBase &node)
+        {
+            _cost_expr = node;
+        }
+        Nodecl::NodeclBase DataEnvironment::get_cost_expr()
+        {
+            return _cost_expr;
+        }
+
+        void DataEnvironment::set_priority_expr(const Nodecl::NodeclBase &node)
+        {
+            _priority_expr = node;
+        }
+        Nodecl::NodeclBase DataEnvironment::get_priority_expr()
+        {
+            return _priority_expr;
+        }
+
+        void DataEnvironment::set_onready_expr(const Nodecl::NodeclBase &node)
+        {
+            _onready_expr = node;
+        }
+        Nodecl::NodeclBase DataEnvironment::get_onready_expr()
+        {
+            return _onready_expr;
+        }
+
         void OpenMPPhase::run(DTO& dto)
         {
             // Use the DTO instead
