@@ -26,7 +26,6 @@
 
 
 #include "tl-omp-lowering-directive-environment.hpp"
-//#include "tl-nanos6-interface.hpp"
 
 #include "tl-omp-lowering-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
@@ -556,14 +555,27 @@ namespace TL { namespace OpenMP { namespace Lowering {
         fp_syms_without_data_sharing(constrains["stream"].node);
 
         // node hint
-        TL::Symbol node_default =
-            TL::Scope::get_global_scope().get_symbol_from_name("nanos6_cluster_no_hint");
-        ERROR_CONDITION(!node_default.is_valid(),
-            "Invalid 'nanos6_cluster_no_hint' enumerator\n", 0);
+        Symbol constraints_api = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_task_constraints_api");
+        int constraints_version = -1;
+        if (constraints_api.is_valid() && constraints_api.is_enumerator())
+        {
+            Nodecl::NodeclBase value = constraints_api.get_value();
+            if (!value.is_null() && value.is_constant()) {
+                constraints_version = const_value_cast_to_unsigned_int(value.get_constant());
+            }
+        }
 
-        constrains["node"].default_value = node_default.make_nodecl(/*ref_type*/ true);
-        constrains["node"].min_version = 3;
-        fp_syms_without_data_sharing(constrains["node"].node);
+        if (constraints_version >= 3)
+        {
+            TL::Symbol node_default =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos6_cluster_no_hint");
+            ERROR_CONDITION(!node_default.is_valid(),
+                            "Invalid 'nanos6_cluster_no_hint' enumerator\n", 0);
+
+            constrains["node"].default_value = node_default.make_nodecl(/*ref_type*/ true);
+            constrains["node"].min_version = 3;
+            fp_syms_without_data_sharing(constrains["node"].node);
+        }
     }
 
     void DirectiveEnvironment::handle_array_bound(Nodecl::NodeclBase n)
