@@ -26,10 +26,11 @@
 
 
 #include "tl-omp-lowering-directive-environment.hpp"
-//#include "tl-nanos6-interface.hpp"
 
+#include "tl-omp-lowering-utils.hpp"
 #include "tl-nodecl-visitor.hpp"
 
+#include "cxx-cexpr.h"
 #include "cxx-diagnostic.h"
 
 
@@ -365,13 +366,23 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
             virtual void visit(const Nodecl::OmpSs::Cost &n)
             {
-                _env.cost_clause = n.get_cost();
+                _env.constrains["cost"].node = n.get_cost();
+            }
+
+            virtual void visit(const Nodecl::OmpSs::Stream &n)
+            {
+                _env.constrains["stream"].node = n.get_stream();
+            }
+
+            virtual void visit(const Nodecl::OmpSs::Node &n)
+            {
+                _env.constrains["node"].node = n.get_node();
             }
 
             virtual void visit(const Nodecl::OmpSs::Onready &n)
             {
                 _env.onready_clause = n.get_onready();
-            }
+			}
 
             virtual void visit(const Nodecl::OpenMP::Grainsize &n)
             {
@@ -523,9 +534,48 @@ namespace TL { namespace OpenMP { namespace Lowering {
         dep_weakreduction.map(fp_syms_without_data_sharing);
 
         // Other task clauses
-        fp_syms_without_data_sharing(cost_clause);
         fp_syms_without_data_sharing(onready_clause);
         fp_syms_without_data_sharing(priority_clause);
+
+        // Constrains
+        // cost
+        constrains["cost"].default_value
+            = const_value_to_nodecl_with_basic_type(
+                const_value_get_unsigned_int(0),
+                get_unsigned_int_type());
+        constrains["cost"].min_version = 1;
+        fp_syms_without_data_sharing(constrains["cost"].node);
+
+        // stream
+        constrains["stream"].default_value =
+            const_value_to_nodecl_with_basic_type(
+                const_value_get_unsigned_int(0),
+                get_unsigned_int_type());
+        constrains["stream"].min_version = 2;
+        fp_syms_without_data_sharing(constrains["stream"].node);
+
+        // node hint
+        Symbol constraints_api = TL::Scope::get_global_scope().get_symbol_from_name("nanos6_task_constraints_api");
+        int constraints_version = -1;
+        if (constraints_api.is_valid() && constraints_api.is_enumerator())
+        {
+            Nodecl::NodeclBase value = constraints_api.get_value();
+            if (!value.is_null() && value.is_constant()) {
+                constraints_version = const_value_cast_to_unsigned_int(value.get_constant());
+            }
+        }
+
+        if (constraints_version >= 3)
+        {
+            TL::Symbol node_default =
+                TL::Scope::get_global_scope().get_symbol_from_name("nanos6_cluster_no_hint");
+            ERROR_CONDITION(!node_default.is_valid(),
+                            "Invalid 'nanos6_cluster_no_hint' enumerator\n", 0);
+
+            constrains["node"].default_value = node_default.make_nodecl(/*ref_type*/ true);
+            constrains["node"].min_version = 3;
+            fp_syms_without_data_sharing(constrains["node"].node);
+        }
     }
 
     void DirectiveEnvironment::handle_array_bound(Nodecl::NodeclBase n)

@@ -751,17 +751,26 @@ namespace TL { namespace OpenMP {
             }
         }
 
-        PragmaCustomClause cost_clause = pragma_line.get_clause("cost");
-        if (cost_clause.is_defined())
-        {
-            ObjectList<Nodecl::NodeclBase> expr_list = cost_clause.get_arguments_as_expressions(parsing_scope);
-            if (expr_list.size() != 1)
-            {
-                error_printf_at(construct.get_locus(), "clause 'cost' requires just one argument\n");
-            }
-            else
-            {
-                task_info.set_cost_clause_expression(update_clauses(expr_list, function_sym)[0]);
+        { // Constrains
+            const TL::OmpSs::FunctionTaskInfo::constrain_map_t &constrains = task_info.get_constrains_map();
+
+            for (auto &it : constrains) {
+                std::string name = it.first;
+                PragmaCustomClause clause = pragma_line.get_clause(name);
+
+                if (clause.is_defined())
+                {
+                    ObjectList<Nodecl::NodeclBase> expr_list = clause.get_arguments_as_expressions(parsing_scope);
+                    if (expr_list.size() != 1)
+                    {
+                        std::string message = "clause " + name + " requires just one argument\n";
+                        error_printf_at(construct.get_locus(), message.c_str());
+                    }
+                    else
+                    {
+                        task_info.set_constrain_clause_expression(name, update_clauses(expr_list, function_sym)[0]);
+                    }
+                }
             }
         }
 

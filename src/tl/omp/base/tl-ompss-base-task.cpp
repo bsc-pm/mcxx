@@ -649,18 +649,36 @@ namespace TL { namespace OmpSs {
                     );
         }
 
-        if (!function_task_info.get_cost_clause_expression().is_null())
-        {
-            result_list.append(
-                    Nodecl::OmpSs::Cost::make(function_task_info.get_cost_clause_expression().shallow_copy())
-                    );
+
+        {   // Constrains
+            const TL::OmpSs::FunctionTaskInfo::constrain_map_t &constrains =
+                function_task_info.get_constrains_map();
+
+            for (const auto &it : constrains) {
+                const std::string &name = it.first;
+                const Nodecl::NodeclBase &contrain = it.second;
+
+                if (!contrain.is_null())
+                {
+                    if (name == "cost") {
+                        result_list.append(Nodecl::OmpSs::Cost::make(contrain.shallow_copy()));
+                    } else if (name == "node") {
+                        result_list.append(Nodecl::OmpSs::Node::make(contrain.shallow_copy()));
+                    } else if (name == "stream") {
+                        result_list.append(Nodecl::OmpSs::Stream::make(contrain.shallow_copy()));
+                    } else {
+                        info_printf_at(function_sym.get_locus(),
+                                 "Unknown constrain clause \"%s\"\n", name.c_str());
+                    }
+                }
+            }
         }
 
         if (!function_task_info.get_task_label().is_null())
         {
             result_list.append(
-                    Nodecl::OmpSs::TaskLabel::make(
-                        function_task_info.get_task_label().get_text()));
+                Nodecl::OmpSs::TaskLabel::make(
+                    function_task_info.get_task_label().get_text()));
         }
 
         if (!function_task_info.get_onready_clause_expression().is_null())

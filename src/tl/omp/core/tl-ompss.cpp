@@ -45,6 +45,7 @@ namespace TL {
         : EnumReaderTrait<OmpSs::CopyItem::ItemDirection> { };
 }
 
+// This is the arrays with the OmpSs constrains
 namespace TL { namespace OmpSs {
 
     std::string directionality_to_str(CopyDirection dir)
@@ -428,6 +429,9 @@ namespace TL { namespace OmpSs {
         : _sym(sym),
         _parameters(parameter_info)
     {
+        _constrains["cost"];
+        _constrains["stream"];
+        _constrains["node"];
     }
 
     FunctionTaskInfo::FunctionTaskInfo(Symbol sym,
@@ -439,6 +443,9 @@ namespace TL { namespace OmpSs {
         _parameter_reductions(parameter_red_info),
         _parameter_weakreductions(parameter_weakred_info)
     {
+        _constrains["cost"];
+        _constrains["stream"];
+        _constrains["node"];
     }
 
     FunctionTaskInfo::FunctionTaskInfo(
@@ -483,14 +490,17 @@ namespace TL { namespace OmpSs {
         _priority_clause_expr = Nodecl::Utils::deep_copy(
                 task_info._priority_clause_expr, task_info._sym.get_scope(), translation_map);
 
-        _cost_clause_expr = Nodecl::Utils::deep_copy(
-                task_info._cost_clause_expr, task_info._sym.get_scope(), translation_map);
-
         _task_label = Nodecl::Utils::deep_copy(
                 task_info._task_label, task_info._sym.get_scope(), translation_map);
 
         _onready_clause_expr = Nodecl::Utils::deep_copy(
                 task_info._onready_clause_expr, task_info._sym.get_scope(), translation_map);
+
+        // Copy constrains
+        for (auto &it : task_info._constrains) {
+            _constrains[it.first] = Nodecl::Utils::deep_copy(
+                it.second, task_info._sym.get_scope(), translation_map);
+        }
 
         _parsing_scope = task_info._parsing_scope;
     }
@@ -574,15 +584,22 @@ namespace TL { namespace OmpSs {
             new_function_task_info._priority_clause_expr = updated_priority_clause;
         }
 
-        if (!_cost_clause_expr.is_null())
+        // We iterate here over an array of type constrain_map_t which values
+        // are constrain_defaulted_t.
+        for (const auto &it : _constrains)
         {
-            Nodecl::NodeclBase updated_cost_clause = instantiate_expression(
-                    _cost_clause_expr.get_internal_nodecl(),
+            const Nodecl::NodeclBase &old_clause = it.second;
+
+            if (!old_clause.is_null())
+            {
+                Nodecl::NodeclBase updated_clause = instantiate_expression(
+                    old_clause.get_internal_nodecl(),
                     instantiation_context,
                     instantiation_symbol_map,
                     /* pack index */ -1);
 
-            new_function_task_info._cost_clause_expr = updated_cost_clause;
+                new_function_task_info._constrains[it.first] = updated_clause;
+            }
         }
 
         if (!_onready_clause_expr.is_null())
@@ -687,9 +704,9 @@ namespace TL { namespace OmpSs {
         _priority_clause_expr = expr;
     }
 
-    void FunctionTaskInfo::set_cost_clause_expression(Nodecl::NodeclBase expr)
+    void FunctionTaskInfo::set_constrain_clause_expression(const std::string &name, Nodecl::NodeclBase expr)
     {
-        _cost_clause_expr = expr;
+        _constrains.at(name) = expr;
     }
 
     void FunctionTaskInfo::set_onready_clause_expression(Nodecl::NodeclBase expr)
@@ -712,9 +729,9 @@ namespace TL { namespace OmpSs {
         return _priority_clause_expr;
     }
 
-    Nodecl::NodeclBase FunctionTaskInfo::get_cost_clause_expression() const
+    const FunctionTaskInfo::constrain_map_t &FunctionTaskInfo::get_constrains_map() const
     {
-        return _cost_clause_expr;
+        return _constrains;
     }
 
     Nodecl::NodeclBase FunctionTaskInfo::get_onready_clause_expression() const
@@ -798,11 +815,14 @@ namespace TL { namespace OmpSs {
         mw.write(_wait);
         mw.write(_lint_verified);
         mw.write(_priority_clause_expr);
-        mw.write(_cost_clause_expr);
         mw.write(_onready_clause_expr);
         mw.write(_task_label);
         mw.write(_parsing_scope);
         mw.write(_locus);
+
+        for (auto &it : _constrains) {
+            mw.write(it.second);
+        }
     }
 
     void FunctionTaskInfo::module_read(ModuleReader& mr)
@@ -817,11 +837,14 @@ namespace TL { namespace OmpSs {
         mr.read(_wait);
         mr.read(_lint_verified);
         mr.read(_priority_clause_expr);
-        mr.read(_cost_clause_expr);
         mr.read(_onready_clause_expr);
         mr.read(_task_label);
         mr.read(_parsing_scope);
         mr.read(_locus);
+
+        for (auto &it : _constrains) {
+            mr.read(it.second);
+        }
     }
 
     void FunctionTaskSet::add_function_task(Symbol sym, const FunctionTaskInfo& function_info)

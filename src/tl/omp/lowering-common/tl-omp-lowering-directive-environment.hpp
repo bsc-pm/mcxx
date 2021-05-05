@@ -66,6 +66,16 @@ namespace TL { namespace OpenMP { namespace Lowering {
         }
     };
 
+    typedef struct
+    {
+        Nodecl::NodeclBase node;
+        Nodecl::NodeclBase default_value;
+        unsigned int min_version; // Minimum version for nanos6_task_constraints_api
+    } constrain_defaulted_t;
+
+    typedef std::pair<std::string, constrain_defaulted_t> named_constrain_defaulted_t;
+    typedef std::map<std::string, constrain_defaulted_t> constrain_map_t;
+
     //! This class contains all the information associated with the environment directive
     struct DirectiveEnvironment
     {
@@ -94,13 +104,13 @@ namespace TL { namespace OpenMP { namespace Lowering {
         /* --------  OmpSs-2 scheduling & threshold information ------ */
         Nodecl::NodeclBase final_clause;
         Nodecl::NodeclBase if_clause;
-        Nodecl::NodeclBase cost_clause;
         Nodecl::NodeclBase priority_clause;
         Nodecl::NodeclBase lint_verified;
         Nodecl::NodeclBase onready_clause;
         Nodecl::NodeclBase grainsize; // Taskloop
         Nodecl::NodeclBase chunksize; // Taskloop
 
+        constrain_map_t constrains;
 
         /* ------- OmpSs-2 Lint ------- */
         TL::ObjectList<Nodecl::NodeclBase> lint_free;
