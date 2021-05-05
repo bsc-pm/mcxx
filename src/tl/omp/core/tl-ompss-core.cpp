@@ -764,7 +764,7 @@ namespace TL { namespace OpenMP {
                     if (expr_list.size() != 1)
                     {
                         std::string message = "clause " + name + " requires just one argument\n";
-                        error_printf_at(construct.get_locus(), message.c_str());
+                        error_printf_at(construct.get_locus(), "%s", message.c_str());
                     }
                     else
                     {
