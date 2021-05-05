@@ -2976,18 +2976,20 @@ void TaskProperties::create_task_implementations_info(
                 /* member_literal */ Nodecl::NodeclBase::null(),
                 member.get_type());
 
-            Nodecl::NodeclBase expr = Nodecl::Utils::deep_copy(
-				(it.second.node.is_null() ? it.second.default_value : it.second.node),
-				unpacked_fun_inside_scope, symbol_map);
-
             if (IS_FORTRAN_LANGUAGE)
             {
                 // Insert extra symbol declarations and add them to the symbol
                 // map (e.g. functions and subroutines declared in other scopes)
                 Nodecl::Utils::Fortran::ExtraDeclsVisitor fun_visitor(
                     symbol_map, unpacked_fun_inside_scope, _related_function);
-                fun_visitor.insert_extra_symbols(expr);
+                fun_visitor.insert_extra_symbols(it.second.node);
             }
+
+            Nodecl::NodeclBase expr = Nodecl::Utils::deep_copy(
+                (it.second.node.is_null() ? it.second.default_value :
+                                            it.second.node),
+                unpacked_fun_inside_scope,
+                symbol_map);
 
             if (!expr.get_type().is_same_type(member.get_type()))
             {
