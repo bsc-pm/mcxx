@@ -3477,6 +3477,7 @@ config_edit = \
      -e 's|@PGICC[@]|$(PGICC)|g' \
      -e 's|@PGICXX[@]|$(PGICXX)|g' \
      -e 's|@PGIFC[@]|$(PGIFC)|g' \
+     -e 's|@PGI_FLOAT128_OPTION[@]|$(PGI_FLOAT128_OPTION)|g' \
      -e 's|@NVCC[@]|$(NVCC)|g' \
      -e 's|@PKGDATADIR[@]|$(pkgdatadir)|g' \
      -e 's|@SIMD_FLAGS[@]|$(SIMD_FLAGS)|g' \
