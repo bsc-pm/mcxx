@@ -1413,7 +1413,7 @@ then
    then
       INSTALL_CONFIG_FILES="${INSTALL_CONFIG_FILES} 55.config.omp.pgi"
 
-      # Intel Mercurium C/C++/Fortran profiles
+      # PGI Mercurium C/C++/Fortran profiles
       if test x"$PGICC" != x;
       then
           COMPILER_NAMES="${COMPILER_NAMES} pgimcc"
