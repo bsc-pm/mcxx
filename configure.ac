@@ -489,6 +489,32 @@ then
    fi
 fi
 
+if test x"$enable_pgi_compilers" = x"yes";
+then
+   # Detect version to check the float128 support, as this will determine
+   # if there is need to pass --disable-float128-token in the config file:
+   # match "XX.YY", e.g. 19.10, 20.7 etc. using grep regex match
+   # (extra [] because m4 neutralizes it)
+   pgi_VERSION=`${PGICXX} --version | grep -Eo ['[0-9]+[.][0-9]+']`
+   case $pgi_VERSION in
+      19.*|20.*)
+          pgi_float128_support=no
+          ;;
+      21.*)
+          pgi_float128_support=yes
+          ;;
+      *)
+          AC_MSG_WARN([The detected PGI version is not tested])
+          pgi_float128_support=no
+          ;;
+   esac
+   if test x"$pgi_float128_support" = x"no";
+   then
+      PGI_FLOAT128_OPTION="--disable-float128-token"
+   fi
+fi
+AC_SUBST([PGI_FLOAT128_OPTION])
+
 dnl ----------------- END PGI Compilers ------------------------
 
 dnl --------------------- Support for plain profiles for Intel Compilers -------------
