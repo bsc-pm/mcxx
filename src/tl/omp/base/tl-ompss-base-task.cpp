@@ -477,6 +477,12 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
+        _base->make_item_list<Nodecl::OmpSs::DepWeakConcurrent>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_CONCURRENT,
+                locus,
+                result_list);
+
         _base->make_item_list<Nodecl::OmpSs::DepCommutative>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_COMMUTATIVE,
@@ -940,6 +946,11 @@ namespace TL { namespace OmpSs {
         void visit(const Nodecl::OmpSs::DepCommutative& dep_inout)
         {
             report_dep(dep_inout.get_exprs(), OpenMP::DEP_OMPSS_COMMUTATIVE);
+        }
+
+        void visit(const Nodecl::OmpSs::DepWeakConcurrent& dep_concurrent)
+        {
+            report_dep(dep_concurrent.get_exprs(), OpenMP::DEP_OMPSS_WEAK_CONCURRENT);
         }
 
         void visit(const Nodecl::OmpSs::DepWeakCommutative& dep_commutative)

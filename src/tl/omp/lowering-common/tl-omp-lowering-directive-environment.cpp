@@ -231,6 +231,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 handle_dependences(n, _env.dep_weakcommutative);
             }
 
+            virtual void visit(const Nodecl::OmpSs::DepWeakConcurrent &n)
+            {
+                handle_dependences(n, _env.dep_weakconcurrent);
+            }
+
             virtual void visit(const Nodecl::OmpSs::DepConcurrent &n)
             {
                 handle_dependences(n, _env.dep_concurrent);

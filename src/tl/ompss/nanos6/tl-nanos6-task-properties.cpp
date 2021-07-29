@@ -139,6 +139,7 @@ namespace TL { namespace Nanos6 {
                 { _env.dep_concurrent },
 
                 { _env.dep_weakcommutative },
+                { _env.dep_weakconcurrent },
 
                 { _env.dep_reduction },
                 { _env.dep_weakreduction }
@@ -239,6 +240,7 @@ namespace TL { namespace Nanos6 {
                 { _env.dep_concurrent },
 
                 { _env.dep_weakcommutative },
+                { _env.dep_weakconcurrent },
 
                 { _env.dep_reduction },
                 { _env.dep_weakreduction }
@@ -861,6 +863,7 @@ namespace TL { namespace Nanos6 {
             { _env.dep_concurrent  },
 
             { _env.dep_weakcommutative },
+            { _env.dep_weakconcurrent },
 
             { _env.dep_reduction     },
             { _env.dep_weakreduction },
@@ -911,6 +914,7 @@ namespace TL { namespace Nanos6 {
             { _env.dep_concurrent  },
 
             { _env.dep_weakcommutative },
+            { _env.dep_weakconcurrent },
 
             { _env.dep_reduction     },
             { _env.dep_weakreduction },
@@ -4247,6 +4251,7 @@ void TaskProperties::create_task_implementations_info(
             { _env.dep_concurrent,  "nanos6_register_region_concurrent_depinfo", 5, "concurrent dependences"   },
 
             { _env.dep_weakcommutative, "nanos6_register_region_weak_commutative_depinfo", 6, "weak commutative dependences" },
+            { _env.dep_weakconcurrent, "nanos6_register_region_weak_concurrent_depinfo", 6, "weak concurrent dependences" },
 
             { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo", 5, "reduction dependences"           },
             { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo", 5, "weak reduction dependences" },

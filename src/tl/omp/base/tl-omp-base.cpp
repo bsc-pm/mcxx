@@ -3662,6 +3662,12 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_item_list<Nodecl::OmpSs::DepWeakConcurrent>(
+                dependences,
+                OpenMP::DEP_OMPSS_WEAK_CONCURRENT,
+                locus,
+                result_list);
+
         make_item_list<Nodecl::OmpSs::DepReduction>(
                 dependences, OpenMP::DEP_OMPSS_REDUCTION,
                 locus,

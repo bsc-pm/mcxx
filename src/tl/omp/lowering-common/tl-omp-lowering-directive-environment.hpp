@@ -98,6 +98,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         TL::ObjectList<Nodecl::NodeclBase> dep_commutative;
         TL::ObjectList<Nodecl::NodeclBase> dep_concurrent;
         TL::ObjectList<Nodecl::NodeclBase> dep_weakcommutative;
+        TL::ObjectList<Nodecl::NodeclBase> dep_weakconcurrent;
         TL::ObjectList<Nodecl::NodeclBase> dep_reduction;
         TL::ObjectList<Nodecl::NodeclBase> dep_weakreduction;
 
