@@ -478,7 +478,7 @@ namespace {
     {
         _is_induction_var = false;
         _incr = NULL;
-        _incr_list->empty();
+        _incr_list->clear();
     }
 
     void FalseInductionVariablesVisitor::join_list(TL::ObjectList<bool>& list)

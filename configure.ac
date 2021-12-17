@@ -2113,6 +2113,14 @@ AC_SUBST([NO_VAR_TRACKING_ASSIGNMENTS])
 dnl Not all gccs support this
 AX_CHECK_COMPILE_FLAG([-Werror=implicit-function-declaration], [CFLAGS="${CFLAGS} -Werror=implicit-function-declaration"])
 
+# Undesirable warnings brought by -Wextra
+AX_CHECK_COMPILE_FLAG([-Wno-cast-function-type],
+                      [CFLAGS="${CFLAGS} -Wno-cast-function-type"
+                      CXXFLAGS="${CXXFLAGS} -Wno-cast-function-type"])
+AX_CHECK_COMPILE_FLAG([-Wno-format-truncation],
+                      [CFLAGS="${CFLAGS} -Wno-format-truncation"
+                      CXXFLAGS="${CXXFLAGS} -Wno-format-truncation"])
+
 dnl Check for 'open_memstream' used to generate strings after FILE*
 dnl in the prettyprinter
 AC_CHECK_FUNC([open_memstream],
