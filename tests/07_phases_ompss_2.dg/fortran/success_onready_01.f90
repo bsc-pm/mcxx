@@ -1,6 +1,5 @@
 ! <testinfo>
 ! test_generator=config/mercurium-ompss-2
-! test_exec_fail=yes
 ! </testinfo>
 
 SUBROUTINE BAR(X)
