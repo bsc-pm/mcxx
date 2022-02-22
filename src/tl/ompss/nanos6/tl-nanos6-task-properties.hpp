@@ -150,6 +150,7 @@ namespace TL { namespace Nanos6 {
 
             void unpack_datasharing_arguments(
                     const TL::Symbol &arg,
+                    const std::map<TL::Symbol,TL::Symbol> &args_to_local_map,
                     // Out
                     Nodecl::List &args,
                     TL::ObjectList<std::string> *parameter_names,
@@ -164,7 +165,8 @@ namespace TL { namespace Nanos6 {
                     const TL::ObjectList<std::string> &outline_parameter_names,
                     const TL::Scope &outline_inside_scope,
                     void (TaskProperties::*compute_stmts_pre_fun_call_fun)
-                    (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const,
+                    (TL::Scope &, Nodecl::List &,
+                     std::map<TL::Symbol, TL::Symbol> &) const,
                     // Out
                     Nodecl::NodeclBase &forwarded_function_call);
 
@@ -190,13 +192,15 @@ namespace TL { namespace Nanos6 {
                     const TL::ObjectList<std::string> &outline_fun_param_names,
                     const ObjectList<TL::Type> &outline_fun_param_types,
                     void (TaskProperties::*compute_stmts_pre_fun_call_fun)
-                            (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const);
+                            (TL::Scope &, Nodecl::List &,
+                            std::map<TL::Symbol, TL::Symbol> &) const);
 
             //! This function computes the stmts that translate the arguments
             //! to the address space of the device where the task is going to be executed
             void compute_arguments_translation(
-                    const TL::Scope &outline_fun_inside_scope,
-                    Nodecl::List &stmts) const;
+                    TL::Scope &outline_fun_inside_scope,
+                    Nodecl::List &stmts,
+                    std::map<TL::Symbol, TL::Symbol> &args_to_local_map) const;
 
 
             TL::Symbol add_field_to_class(TL::Symbol new_class_symbol,

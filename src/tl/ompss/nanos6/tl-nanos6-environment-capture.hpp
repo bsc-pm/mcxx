@@ -169,6 +169,8 @@ namespace Nanos6
         Accessor get_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_private_vla, bool reference_to_pointer_if_shared) const;
         Accessor get_private_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool actual_storage_if_vla) const;
         Accessor get_shared_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, bool reference_to_pointer) const;
+        Accessor get_private_translation_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, const TL::Symbol& new_symbol, bool actual_storage_if_vla) const;
+        Accessor get_shared_translation_symbol_accessor(const TL::Symbol& object, const TL::Symbol& symbol, const TL::Symbol& new_symbol, bool reference_to_pointer) const;
 
         bool requires_initialization() const
         {
