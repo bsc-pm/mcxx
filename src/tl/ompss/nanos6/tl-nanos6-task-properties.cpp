@@ -4923,23 +4923,29 @@ void TaskProperties::create_task_implementations_info(
                             /*member literal*/ Nodecl::NodeclBase::null(),
                             unpacked_type.no_ref());
 
-                    // Create a temporal variable to do the tranlation
-                    TL::Symbol dup_symbol;
+                    // Using allocated local vars is only supported from v3
+                    if (Interface::family_is_at_least("nanos6_reductions_api", 3))
                     {
-                        dup_symbol = outline_fun_inside_scope.new_symbol(field_name);
-                        dup_symbol.get_internal_symbol()->kind = SK_VARIABLE;
-                        dup_symbol.set_type(unpacked_type.no_ref());
-                        symbol_entity_specs_set_is_user_declared(dup_symbol.get_internal_symbol(), 1);
+                        // Create a temporal variable to do the tranlation
+                        TL::Symbol dup_symbol;
+                        {
+                            dup_symbol = outline_fun_inside_scope.new_symbol(field_name);
+                            dup_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                            dup_symbol.set_type(unpacked_type.no_ref());
+                            symbol_entity_specs_set_is_user_declared(dup_symbol.get_internal_symbol(), 1);
+                        }
+
+                        stmts.append(Nodecl::ObjectInit::make(dup_symbol));
+                        if (IS_CXX_LANGUAGE)
+                            stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), dup_symbol));
+                        dup_symbol.set_value(member_access);
+
+                        args_to_local_map[current_symbol] = dup_symbol;
+
+                        member_access = dup_symbol.make_nodecl(/*set_ref_type*/ true);
                     }
 
-                    stmts.append(Nodecl::ObjectInit::make(dup_symbol));
-                    if (IS_CXX_LANGUAGE)
-                        stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), dup_symbol));
-                    dup_symbol.set_value(member_access);
-
-                    args_to_local_map[current_symbol] = dup_symbol;
-
-                    lhs = dup_symbol.make_nodecl(/*set_ref_type*/ true);
+                    lhs = member_access;
                 } else if (IS_FORTRAN_LANGUAGE) {
                     TL::Symbol current_fw_symbol = outline_fun_inside_scope.get_symbol_from_name(
                         EnvironmentCapture::get_field_name(current_symbol.get_name()));
