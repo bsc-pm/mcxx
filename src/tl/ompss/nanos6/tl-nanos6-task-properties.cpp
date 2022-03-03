@@ -1797,6 +1797,7 @@ void TaskProperties::create_task_implementations_info(
 
     void TaskProperties::unpack_datasharing_arguments(
             const TL::Symbol &arg,
+            const std::map<TL::Symbol,TL::Symbol> &args_to_local_map,
             // Out
             Nodecl::List &args,
             TL::ObjectList<std::string> *parameter_names,
@@ -1810,9 +1811,19 @@ void TaskProperties::create_task_implementations_info(
                 it++)
         {
             TL::Symbol symbol = *it;
-            EnvironmentCapture::Accessor symbol_accessor =
-                _environment_capture.get_private_symbol_accessor(
-                    arg, symbol, /* actual_storage_if_vla */ true);
+            EnvironmentCapture::Accessor symbol_accessor;
+            if (args_to_local_map.count(symbol))
+            {
+                symbol_accessor =
+                    _environment_capture.get_private_translation_symbol_accessor(
+                        arg, symbol, args_to_local_map.at(symbol), /* actual_storage_if_vla */ true);
+            }
+            else
+            {
+                symbol_accessor =
+                    _environment_capture.get_private_symbol_accessor(
+                        arg, symbol, /* actual_storage_if_vla */ true);
+            }
 
             // Note: This is similar to AddParameter functor
             if (parameter_names != NULL)
@@ -1831,8 +1842,18 @@ void TaskProperties::create_task_implementations_info(
                 it++)
         {
             TL::Symbol symbol = *it;
-            EnvironmentCapture::Accessor symbol_accessor =
-                _environment_capture.get_shared_symbol_accessor(arg, symbol, /* reference_to_pointer */ false);
+            EnvironmentCapture::Accessor symbol_accessor;
+            if (args_to_local_map.count(symbol))
+            {
+                symbol_accessor =
+                    _environment_capture.get_shared_translation_symbol_accessor(
+                        arg, symbol, args_to_local_map.at(symbol), /* reference_to_pointer */ false);
+            }
+            else
+            {
+                symbol_accessor =
+                    _environment_capture.get_shared_symbol_accessor(arg, symbol, /* reference_to_pointer */ false);
+            }
 
             // Note: This is similar to AddParameter functor
             if (parameter_names != NULL)
@@ -1852,6 +1873,7 @@ void TaskProperties::create_task_implementations_info(
         private:
             const TL::Nanos6::TaskProperties &_task_properties;
             const TL::Scope &_symbol_scope;
+            const std::map<TL::Symbol,TL::Symbol> &_args_to_local_map;
             Nodecl::List &_unpacked_args;
             TL::ObjectList<std::string> *_parameter_names;
             TL::ObjectList<TL::Type> *_parameter_types;
@@ -1861,13 +1883,15 @@ void TaskProperties::create_task_implementations_info(
             ComputeUnpackedArgumentFromSymbolName(
                     const TL::Nanos6::TaskProperties &task_properties,
                     const TL::Scope &symbol_scope,
+                    const std::map<TL::Symbol,TL::Symbol> &args_to_local_map,
                     // Out
                     Nodecl::List &unpacked_args,
                     TL::ObjectList<std::string> *parameter_names,
                     ObjectList<TL::Type> *parameter_types,
                     std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> *name_to_pair_orig_field_map)
                 : _task_properties(task_properties),
-                _symbol_scope(symbol_scope), _unpacked_args(unpacked_args),
+                _symbol_scope(symbol_scope), _args_to_local_map(args_to_local_map),
+                _unpacked_args(unpacked_args),
                 _parameter_names(parameter_names), _parameter_types(parameter_types),
                 _name_to_pair_orig_field_map(name_to_pair_orig_field_map)
             {}
@@ -1882,6 +1906,7 @@ void TaskProperties::create_task_implementations_info(
                     // Expand 'arg' symbol with task args members
                     _task_properties.unpack_datasharing_arguments(
                             symbol,
+                            _args_to_local_map,
                             _unpacked_args,
                             _parameter_names,
                             _parameter_types,
@@ -1905,7 +1930,8 @@ void TaskProperties::create_task_implementations_info(
             const TL::ObjectList<std::string> &outline_fun_param_names,
             const TL::Scope &outline_fun_inside_scope,
             void (TaskProperties::*compute_stmts_pre_fun_call_fun)
-            (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const,
+            (TL::Scope &, Nodecl::List &,
+             std::map<TL::Symbol, TL::Symbol> &) const,
             // Out
             Nodecl::NodeclBase &forwarded_function_call)
     {
@@ -1935,10 +1961,13 @@ void TaskProperties::create_task_implementations_info(
         // This map associates a symbol name with a pair that represents the original symbol and the field
         std::map<std::string, std::pair<TL::Symbol, TL::Symbol>> name_to_pair_orig_field_map;
 
+        // Dummy
+        std::map<TL::Symbol,TL::Symbol> args_to_local_map;
         // Add remaining parameters/args
         ComputeUnpackedArgumentFromSymbolName compute_unpacked_argument_from_symbol_name(
                 *this,
                 outline_fun_inside_scope,
+                args_to_local_map,
                 forwarded_fun_call_args,
                 &forwarded_parameter_names,
                 &forwarded_parameter_types,
@@ -2067,7 +2096,7 @@ void TaskProperties::create_task_implementations_info(
         if (compute_stmts_pre_fun_call_fun != NULL)
         {
             TL::Scope outline_fun_inside_scope_ = c_forwarded_empty_stmt.retrieve_context();
-            (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope_, list_stmts);
+            (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope_, list_stmts, args_to_local_map);
         }
 
         list_stmts.append(
@@ -2159,7 +2188,7 @@ void TaskProperties::create_task_implementations_info(
             const TL::ObjectList<std::string> &outline_fun_param_names,
             const ObjectList<TL::Type> &outline_fun_param_types,
             void (TaskProperties::*compute_stmts_pre_fun_call_fun)
-            (const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const)
+            (TL::Scope &, Nodecl::List &, std::map<TL::Symbol, TL::Symbol> &) const)
     {
         TL::Symbol outline_function;
         Nodecl::NodeclBase outline_fun_empty_stmt;
@@ -2174,10 +2203,13 @@ void TaskProperties::create_task_implementations_info(
 
         if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
         {
+            // In C/C++ we allocate local vars to be used in the address translation
+            // so task_args is not modified
+            std::map<TL::Symbol,TL::Symbol> args_to_local_map;
             if (compute_stmts_pre_fun_call_fun != NULL)
             {
                 Nodecl::List pre_stmts;
-                (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope, pre_stmts);
+                (this->*compute_stmts_pre_fun_call_fun)(outline_fun_inside_scope, pre_stmts, args_to_local_map);
                 outline_fun_empty_stmt.prepend_sibling(pre_stmts);
             }
 
@@ -2190,6 +2222,7 @@ void TaskProperties::create_task_implementations_info(
             ComputeUnpackedArgumentFromSymbolName compute_unpacked_argument_from_symbol_name(
                     *this,
                     outline_fun_inside_scope,
+                    args_to_local_map,
                     unpacked_fun_call_args,
                     /* parameter_names */ NULL,
                     /* parameter_types */ NULL,
@@ -4850,7 +4883,8 @@ void TaskProperties::create_task_implementations_info(
     }
 
     void TaskProperties::compute_arguments_translation(
-            const TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts) const
+            TL::Scope &outline_fun_inside_scope, Nodecl::List &stmts,
+            std::map<TL::Symbol, TL::Symbol> &args_to_local_map) const
     {
         ERROR_CONDITION(IS_FORTRAN_LANGUAGE && !Interface::family_is_at_least("nanos6_reductions_api", 2),
             "The arguments translation is not implemented for Fortran yet", 0);
@@ -4879,7 +4913,8 @@ void TaskProperties::create_task_implementations_info(
                     TL::Symbol arg = outline_fun_inside_scope.get_symbol_from_name("arg");
                     TL::ObjectList<TL::Symbol> arg_struct_members = arg.get_type().no_ref().get_nonstatic_data_members();
                     GetField arg_struct_get_field(arg_struct_members);
-                    Nodecl::NodeclBase arg_field = arg_struct_get_field(EnvironmentCapture::get_field_name(current_symbol.get_name()));
+                    std::string field_name = EnvironmentCapture::get_field_name(current_symbol.get_name());
+                    Nodecl::NodeclBase arg_field = arg_struct_get_field(field_name);
 
                     unpacked_type = arg_field.get_type();
                     Nodecl::NodeclBase member_access = Nodecl::ClassMemberAccess::make(
@@ -4887,6 +4922,28 @@ void TaskProperties::create_task_implementations_info(
                             arg_field,
                             /*member literal*/ Nodecl::NodeclBase::null(),
                             unpacked_type.no_ref());
+
+                    // Using allocated local vars is only supported from v3
+                    if (Interface::family_is_at_least("nanos6_reductions_api", 3))
+                    {
+                        // Create a temporal variable to do the tranlation
+                        TL::Symbol dup_symbol;
+                        {
+                            dup_symbol = outline_fun_inside_scope.new_symbol(field_name);
+                            dup_symbol.get_internal_symbol()->kind = SK_VARIABLE;
+                            dup_symbol.set_type(unpacked_type.no_ref());
+                            symbol_entity_specs_set_is_user_declared(dup_symbol.get_internal_symbol(), 1);
+                        }
+
+                        stmts.append(Nodecl::ObjectInit::make(dup_symbol));
+                        if (IS_CXX_LANGUAGE)
+                            stmts.append(Nodecl::CxxDef::make(Nodecl::NodeclBase::null(), dup_symbol));
+                        dup_symbol.set_value(member_access);
+
+                        args_to_local_map[current_symbol] = dup_symbol;
+
+                        member_access = dup_symbol.make_nodecl(/*set_ref_type*/ true);
+                    }
 
                     lhs = member_access;
                 } else if (IS_FORTRAN_LANGUAGE) {

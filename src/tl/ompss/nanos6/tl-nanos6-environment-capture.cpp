@@ -840,6 +840,92 @@ namespace TL { namespace Nanos6 {
         return field.get_name();
     }
 
+    EnvironmentCapture::Accessor EnvironmentCapture::get_private_translation_symbol_accessor(
+        const TL::Symbol& object,
+        const TL::Symbol& symbol,
+        const TL::Symbol& new_symbol,
+        bool actual_storage_if_vla) const
+    {
+        Nodecl::NodeclBase argument = new_symbol.make_nodecl(/* set_ref_type */ true);
+
+        if (actual_storage_if_vla &&
+            (IS_C_LANGUAGE || IS_CXX_LANGUAGE) &&
+            (symbol.get_type().depends_on_nonconstant_values() &&
+                (symbol.get_type().no_ref().is_array() ||
+                symbol.get_type().no_ref().is_pointer())))
+        {
+            // A conversion between pointer type (from argument) and
+            // array type (from parameter) is required. This is done by
+            // getting a reference (&) from the argument, casting it to a
+            // pointer to the array type, and dereferencing (*) it afterwards.
+
+            TL::Type param_type = rewrite_type_using_args(
+                object, symbol.get_type().no_ref(), TL::ObjectList<TL::Symbol>(), TL::ObjectList<TL::Symbol>());
+
+            Nodecl::NodeclBase cast;
+            argument = Nodecl::Dereference::make(
+                    cast = Nodecl::Conversion::make(
+                        Nodecl::Reference::make(
+                            argument,
+                            symbol.get_type().get_pointer_to()),
+                        param_type.get_pointer_to()),
+                    param_type.get_lvalue_reference_to());
+
+            cast.set_text("C");
+        }
+
+        Accessor result = {
+            /* _original_symbol */ symbol,
+            /* _original_type */ symbol.get_type(),
+            /* _environment_symbol */ new_symbol,
+            /* _environment_name */ new_symbol.get_name(),
+            /* _environment_type */ new_symbol.get_type().get_lvalue_reference_to(),
+            /* _environment_access */ std::move(argument)
+        };
+        return result;
+    }
+
+    EnvironmentCapture::Accessor EnvironmentCapture::get_shared_translation_symbol_accessor(
+        const TL::Symbol& object,
+        const TL::Symbol& symbol,
+        const TL::Symbol& new_symbol,
+        bool reference_to_pointer) const
+    {
+        Nodecl::NodeclBase argument = new_symbol.make_nodecl(/* set_ref_type */ true);
+
+        if (IS_C_LANGUAGE || IS_CXX_LANGUAGE)
+        {
+            if (!reference_to_pointer)
+            {
+                if (symbol.get_type().depends_on_nonconstant_values())
+                {
+                    TL::Type cast_type = rewrite_type_using_args(
+                            object, symbol.get_type().no_ref().get_pointer_to(),
+                            TL::ObjectList<TL::Symbol>(), TL::ObjectList<TL::Symbol>());
+
+                    argument =
+                        Nodecl::Conversion::make(argument, cast_type);
+                    argument.set_text("C");
+                }
+
+                argument = Nodecl::Dereference::make(
+                    argument,
+                    argument.get_type().no_ref()
+                        .points_to().get_lvalue_reference_to());
+            }
+        }
+
+        Accessor result = {
+            /* _original_symbol */ symbol,
+            /* _original_type */ symbol.get_type(),
+            /* _environment_symbol */ new_symbol,
+            /* _environment_name */ new_symbol.get_name(),
+            /* _environment_type */ new_symbol.get_type(),
+            /* _environment_access */ std::move(argument)
+        };
+        return result;
+    }
+
     EnvironmentCapture::Accessor EnvironmentCapture::get_symbol_accessor(
         const TL::Symbol& object,
         const TL::Symbol& symbol,
