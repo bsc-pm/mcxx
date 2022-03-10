@@ -4923,8 +4923,8 @@ void TaskProperties::create_task_implementations_info(
                             /*member literal*/ Nodecl::NodeclBase::null(),
                             unpacked_type.no_ref());
 
-                    // Using allocated local vars is only supported from v3
-                    if (Interface::family_is_at_least("nanos6_reductions_api", 3))
+                    // Using allocated local vars is only supported from v4
+                    if (Interface::family_is_at_least("nanos6_loop_api", 4))
                     {
                         // Create a temporal variable to do the tranlation
                         TL::Symbol dup_symbol;
