@@ -1616,10 +1616,16 @@ namespace TL { namespace OpenMP {
 
         if (pragma_line.get_clause("wait").is_defined())
         {
-            error_printf_at(pragma_line.get_locus(),
-                    "The 'wait' clause is not supported on the taskloop construct\n");
+            execution_environment.append(
+                    Nodecl::OmpSs::Wait::make(directive.get_locus()));
 
-            // execution_environment.append(Nodecl::OmpSs::Wait::make());
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task waits for its children.\n"
+                    ;
+            }
         }
 
         handle_label_clause(directive, execution_environment);
