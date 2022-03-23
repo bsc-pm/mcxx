@@ -1923,7 +1923,7 @@ AC_MSG_CHECKING([default typing environment])
 
 AC_ARG_WITH([type-environment],
         AS_HELP_STRING([--with-type-environment=type_environment],
-            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64, linux-spu, linux-arm, linux-arm64]),
+            [Overrides type environment detection. Valid values are linux-i386, linux-ppc32, linux-ppc64, linux-x86_64, linux-ia64, linux-spu, linux-arm, linux-arm64, linux-riscv64]),
         [
            if test x"$withval" != x;
            then
@@ -1974,6 +1974,10 @@ dnl We try to figure a sensible default environment based on the configure envir
        aarch64-*-linux*|aarch64-linux*)
             # 64 bit ARM
             default_type_environ="linux-arm64"
+            ;;
+       riscv64-linux*|riscv64-*-linux*)
+            # 64 bit RISC-V
+            default_type_environ="linux-riscv64"
             ;;
        spu)
            default_type_environ="linux-spu"

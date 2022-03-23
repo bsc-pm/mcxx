@@ -1774,6 +1774,7 @@ static type_environment_t linux_spu;
 static type_environment_t linux_arm_eabi;
 static type_environment_t linux_arm64;
 static type_environment_t solaris_sparcv9;
+static type_environment_t linux_riscv64;
 
 static type_t* bgq_get_pointer_to_char(void)
 {
@@ -2534,6 +2535,79 @@ void init_type_environments(void)
     linux_arm64.alignof_builtin_va_list = 8;
 
     linux_arm64.gcc_target_specific_builtins = gcc_builtins_arm64;
+
+    // ***************************+***************
+    //     Linux RISC-V 64
+    // ***************************+***************
+    linux_riscv64.environ_id = "linux-riscv64";
+    linux_riscv64.environ_name = "Linux RISC-V 64";
+
+    linux_riscv64.endianness = ENV_LITTLE_ENDIAN;
+
+    // '_Bool' in C99
+    // 'bool' in C++
+    linux_riscv64.sizeof_bool = 1;
+    linux_riscv64.alignof_bool = 1;
+
+    linux_riscv64.int_type_of_wchar_t = get_unsigned_int_type;
+    linux_riscv64.sizeof_wchar_t = 4;
+    linux_riscv64.alignof_wchar_t = 4;
+
+    linux_riscv64.sizeof_unsigned_short = 2;
+    linux_riscv64.alignof_unsigned_short = 2;
+
+    linux_riscv64.sizeof_signed_short = 2;
+    linux_riscv64.alignof_signed_short = 2;
+
+    linux_riscv64.sizeof_unsigned_int = 4;
+    linux_riscv64.alignof_unsigned_int = 4;
+
+    linux_riscv64.sizeof_signed_int = 4;
+    linux_riscv64.alignof_signed_int = 4;
+
+    linux_riscv64.sizeof_unsigned_long = 8;
+    linux_riscv64.alignof_unsigned_long = 8;
+
+    linux_riscv64.sizeof_signed_long = 8;
+    linux_riscv64.alignof_signed_long = 8;
+
+    linux_riscv64.sizeof_unsigned_long_long = 8;
+    linux_riscv64.alignof_unsigned_long_long = 8;
+
+    linux_riscv64.sizeof_signed_long_long = 8;
+    linux_riscv64.alignof_signed_long_long = 8;
+
+    DEFINE_FLOAT_TYPE(linux_riscv64, float, binary_float_32)
+    DEFINE_FLOAT_TYPE(linux_riscv64, double, binary_float_64)
+    DEFINE_FLOAT_TYPE(linux_riscv64, long_double, binary_float_128)
+
+    // Data pointer
+    linux_riscv64.sizeof_pointer = 8;
+    linux_riscv64.alignof_pointer = 8;
+
+    // Code pointer
+    linux_riscv64.sizeof_function_pointer = 8;
+    linux_riscv64.alignof_function_pointer = 8;
+
+    // One 'ptrdiff_t'
+    linux_riscv64.sizeof_pointer_to_data_member = 8;
+    linux_riscv64.alignof_pointer_to_data_member = 8;
+
+    // Two 'ptrdiff_t'
+    linux_riscv64.sizeof_pointer_to_member_function = 8;
+    linux_riscv64.alignof_pointer_to_member_function = 8;
+
+    // Valid both for C and C++
+    linux_riscv64.compute_sizeof = generic_system_v_sizeof;
+
+    linux_riscv64.type_of_sizeof = get_unsigned_long_int_type;
+    linux_riscv64.type_of_ptrdiff_t = get_signed_long_int_type;
+
+    linux_riscv64.char_type = get_unsigned_char_type;
+
+    // Reference: https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc#va_list-va_start-and-va_arg
+    linux_riscv64.sizeof_builtin_va_list = 8;
+    linux_riscv64.alignof_builtin_va_list = 8;
 }
 
 /*
@@ -2553,6 +2627,7 @@ type_environment_t* type_environment_list[] = {
     &linux_arm_eabi,
     &linux_arm64,
     &solaris_sparcv9,
+    &linux_riscv64,
     NULL, /* last */
 };
 
