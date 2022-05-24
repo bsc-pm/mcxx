@@ -206,6 +206,7 @@ namespace TL { namespace Nanos6 {
                 // void nanos6_create_loop(
                 //         nanos6_task_info_t *task_info,
                 //         nanos6_task_invocation_info_t *task_invocation_info,
+                //         char const *task_label,
                 //         size_t args_block_size,
                 //         /* OUT */ void **args_block_pointer,
                 //         /* OUT */ void **task_pointer,
@@ -242,6 +243,11 @@ namespace TL { namespace Nanos6 {
 
                 create_task_args.append(task_invocation_info_ptr);
 
+                if (Interface::family_is_at_least("nanos6_instantiation_api", 5))
+                {
+                    create_task_args.append(
+                        const_value_to_nodecl(const_value_get_signed_int(0)));
+                }
 
                 //args_size
                 create_task_args.append(args_size);
