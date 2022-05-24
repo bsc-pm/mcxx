@@ -1059,8 +1059,13 @@ void TaskProperties::create_task_implementations_info(
             }
 
             // .task_label
+            // .task_type_label in newer APIs
             {
-                Nodecl::NodeclBase field = get_field("task_label");
+                Nodecl::NodeclBase field;
+                if (Interface::family_is_at_least("nanos6_instantiation_api", 5))
+                    field = get_field("task_type_label");
+                else
+                    field = get_field("task_label");
                 Nodecl::NodeclBase value;
 
                 if (!_env.task_label.empty())
