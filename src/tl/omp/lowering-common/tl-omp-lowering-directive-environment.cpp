@@ -271,6 +271,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 _env.wait_clause = true;
             }
 
+            virtual void visit(const Nodecl::OmpSs::Nowait &n)
+            {
+                _env.nowait_clause = true;
+            }
+
             virtual void visit(const Nodecl::OpenMP::NoFlush &n)
             {
                 _env.noflush_clause = true;
@@ -422,7 +427,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
     DirectiveEnvironment::DirectiveEnvironment(Nodecl::NodeclBase environment) :
         is_tied(true), task_is_worksharing(false), task_is_taskwait_with_deps(false),
-        task_is_taskcall(false), wait_clause(false),
+        task_is_taskcall(false), wait_clause(false), nowait_clause(false),
         any_task_dependence(false), noflush_clause(false), locus_of_task_declaration(NULL)
     {
         // Traversing & filling the directive environment

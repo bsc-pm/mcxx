@@ -812,6 +812,7 @@ namespace TL { namespace OpenMP {
         task_info.set_untied(is_untied_task);
 
         task_info.set_wait(pragma_line.get_clause("wait").is_defined());
+        task_info.set_nowait(pragma_line.get_clause("nowait").is_defined());
 
         PragmaCustomClause lint_verified_clause = pragma_line.get_clause("verified");
         if (lint_verified_clause.is_defined())

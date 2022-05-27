@@ -458,7 +458,7 @@ namespace TL { namespace Nanos6 {
         //                          ((!if_expr != 0)    << 1) |
         //                          ((is_loop != 0)     << 2) |
         //                          ((wait_clause != 0) << 3) |
-        //                          ((preallocated_args_struct != 0) << 4)
+        //                          ((preallocated_args_struct != 0) << 4) |
         //
         //          ** CUDA tasks are if(0) when created in final context, so
         //             (nanos6_in_final() << 1)
@@ -536,6 +536,9 @@ namespace TL { namespace Nanos6 {
                 compute_generic_flag_c(_env.lint_verified,
                         /* default value*/ 0, /* bit */ 6 + bit_offset, /* out */ task_flags_expr);
             }
+
+            compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                    _env.nowait_clause, /* bit */ 7 + bit_offset, /* out */ task_flags_expr);
 
             new_stmts.append(
                     Nodecl::ExpressionStatement::make(

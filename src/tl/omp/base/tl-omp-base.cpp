@@ -813,6 +813,20 @@ namespace TL { namespace OpenMP {
             }
         }
 
+        if (pragma_line.get_clause("nowait").is_defined())
+        {
+            execution_environment.append(
+                    Nodecl::OmpSs::Nowait::make(directive.get_locus()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task disables cluster autowait (nowaits) for its children.\n"
+                    ;
+            }
+        }
+
         // Attach the implicit flushes at the entry and exit of the task (for analysis purposes)
         execution_environment.append(
                 Nodecl::OpenMP::FlushAtEntry::make(
@@ -1624,6 +1638,20 @@ namespace TL { namespace OpenMP {
                 *_omp_report_file
                     << OpenMP::Report::indent
                     << "This task waits for its children.\n"
+                    ;
+            }
+        }
+
+        if (pragma_line.get_clause("nowait").is_defined())
+        {
+            execution_environment.append(
+                    Nodecl::OmpSs::Nowait::make(directive.get_locus()));
+
+            if (emit_omp_report())
+            {
+                *_omp_report_file
+                    << OpenMP::Report::indent
+                    << "This task disables cluster autowait (nowaits) for its children.\n"
                     ;
             }
         }

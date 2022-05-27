@@ -166,7 +166,8 @@ namespace TL { namespace OmpSs {
             TargetInfo _target_info;
 
             bool _untied,
-                 _wait;  // OmpSs-2 wait clause
+                 _wait,  // OmpSs-2 wait clause
+				 _nowait; // OmpSs-2 cluster nowait clause
 
             Nodecl::NodeclBase _lint_verified;
             Nodecl::NodeclBase _if_clause_cond_expr;
@@ -182,7 +183,7 @@ namespace TL { namespace OmpSs {
             const locus_t* _locus;
 
         public:
-            FunctionTaskInfo() : _untied(false), _wait(false) { }
+            FunctionTaskInfo() : _untied(false), _wait(false), _nowait(false) { }
 
             FunctionTaskInfo(Symbol sym,
                     ObjectList<TL::OpenMP::DependencyItem> parameter_info);
@@ -235,6 +236,9 @@ namespace TL { namespace OmpSs {
 
             bool get_wait() const;
             void set_wait(bool b);
+
+            bool get_nowait() const;
+            void set_nowait(bool b);
 
             Nodecl::NodeclBase get_lint_verified() const;
             void set_lint_verified(Nodecl::NodeclBase expr);

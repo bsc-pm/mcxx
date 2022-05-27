@@ -628,6 +628,9 @@ namespace TL { namespace OmpSs {
         if (function_task_info.get_wait())
             result_list.append(Nodecl::OmpSs::Wait::make(locus));
 
+        if (function_task_info.get_nowait())
+            result_list.append(Nodecl::OmpSs::Nowait::make(locus));
+
         {
             Nodecl::NodeclBase expr = function_task_info.get_lint_verified();
             if (!expr.is_null())

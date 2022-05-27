@@ -454,7 +454,8 @@ namespace TL { namespace OmpSs {
             TL::Symbol function_sym) :
         _sym(function_sym),
         _untied(task_info._untied),
-        _wait(task_info._wait)
+        _wait(task_info._wait),
+		_nowait(task_info._nowait)
     {
         // Copy the target information
         set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));
@@ -520,6 +521,7 @@ namespace TL { namespace OmpSs {
         new_function_task_info._locus = _locus;
         new_function_task_info._untied = _untied;
         new_function_task_info._wait = _wait;
+        new_function_task_info._nowait = _nowait;
 
         // Second, instantiate all the dependences
         for (TL::ObjectList<TL::OpenMP::DependencyItem>::iterator it = _parameters.begin();
@@ -793,6 +795,16 @@ namespace TL { namespace OmpSs {
         return _wait;
     }
 
+    void FunctionTaskInfo::set_nowait(bool b)
+    {
+        _nowait = b;
+    }
+
+    bool FunctionTaskInfo::get_nowait() const
+    {
+        return _nowait;
+    }
+
     void FunctionTaskInfo::set_lint_verified(Nodecl::NodeclBase expr)
     {
         _lint_verified = expr;
@@ -813,6 +825,7 @@ namespace TL { namespace OmpSs {
         mw.write(_final_clause_cond_expr);
         mw.write(_untied);
         mw.write(_wait);
+        mw.write(_nowait);
         mw.write(_lint_verified);
         mw.write(_priority_clause_expr);
         mw.write(_onready_clause_expr);
@@ -835,6 +848,7 @@ namespace TL { namespace OmpSs {
         mr.read(_final_clause_cond_expr);
         mr.read(_untied);
         mr.read(_wait);
+        mr.read(_nowait);
         mr.read(_lint_verified);
         mr.read(_priority_clause_expr);
         mr.read(_onready_clause_expr);

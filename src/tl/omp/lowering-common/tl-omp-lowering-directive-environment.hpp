@@ -124,6 +124,7 @@ namespace TL { namespace OpenMP { namespace Lowering {
         bool task_is_taskwait_with_deps;
         bool task_is_taskcall;
         bool wait_clause;
+        bool nowait_clause;
         bool any_task_dependence;
 		bool noflush_clause;
 
