@@ -230,8 +230,18 @@ namespace TL { namespace Nanos6 {
 
                 if (Interface::family_is_at_least("nanos6_instantiation_api", 5))
                 {
-                    create_task_args.append(
-                        const_value_to_nodecl(const_value_get_signed_int(0)));
+                    if (IS_FORTRAN_LANGUAGE)
+                    {
+                        // Pass "\0" because it is the easiest way
+                        // The runtime will interpret it as NULL
+                        create_task_args.append(
+                            const_value_to_nodecl(const_value_make_string_null_ended("", 1)));
+                    }
+                    else
+                    {
+                        create_task_args.append(
+                            const_value_to_nodecl(const_value_get_signed_int(0)));
+                    }
                 }
 
                 //args_size
