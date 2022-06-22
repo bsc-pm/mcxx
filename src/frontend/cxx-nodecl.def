@@ -754,6 +754,8 @@ omp-deps-info: NODECL_OMP_SS*DEP_CONCURRENT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_INOUT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_COMMUTATIVE([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_CONCURRENT([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_NONE([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_AUTO([exprs]expression-seq)
 
 ompss-device-info : NODECL_OMP_SS*TARGET([devices]text-seq, [items]ompss-device-info-clauses-seq-opt)
 

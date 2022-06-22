@@ -3696,6 +3696,18 @@ namespace TL { namespace OpenMP {
                 locus,
                 result_list);
 
+        make_item_list<Nodecl::OmpSs::DepNone>(
+                dependences,
+                OpenMP::DEP_OMPSS_NONE,
+                locus,
+                result_list);
+
+        make_item_list<Nodecl::OmpSs::DepAuto>(
+                dependences,
+                OpenMP::DEP_OMPSS_AUTO,
+                locus,
+                result_list);
+
         make_item_list<Nodecl::OmpSs::DepReduction>(
                 dependences, OpenMP::DEP_OMPSS_REDUCTION,
                 locus,

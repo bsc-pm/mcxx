@@ -142,7 +142,10 @@ namespace TL { namespace Nanos6 {
                 { _env.dep_weakconcurrent },
 
                 { _env.dep_reduction },
-                { _env.dep_weakreduction }
+                { _env.dep_weakreduction },
+
+                { _env.dep_none },
+                { _env.dep_auto }
             };
 
             for (DependencesSet *dep_set = deps;
@@ -243,7 +246,10 @@ namespace TL { namespace Nanos6 {
                 { _env.dep_weakconcurrent },
 
                 { _env.dep_reduction },
-                { _env.dep_weakreduction }
+                { _env.dep_weakreduction },
+
+                { _env.dep_none },
+                { _env.dep_auto }
             };
 
             for (DependencesSet *dep_set = deps;
@@ -870,6 +876,9 @@ namespace TL { namespace Nanos6 {
 
             { _env.dep_reduction     },
             { _env.dep_weakreduction },
+
+            { _env.dep_none     },
+            { _env.dep_auto },
         };
 
         TL::Symbol ind_var = get_induction_variable();
@@ -921,6 +930,9 @@ namespace TL { namespace Nanos6 {
 
             { _env.dep_reduction     },
             { _env.dep_weakreduction },
+
+            { _env.dep_none     },
+            { _env.dep_auto },
         };
 
         // Common dependences
@@ -4258,6 +4270,9 @@ void TaskProperties::create_task_implementations_info(
 
             { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo", 5, "reduction dependences"           },
             { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo", 5, "weak reduction dependences" },
+
+            { _env.dep_none,      "nanos6_register_region_none_depinfo", 5, "none dependences"           },
+            { _env.dep_auto, "nanos6_register_region_auto_depinfo", 5, "auto dependences" },
         };
 
         // FIXME: this might emit a warning for an unused variable. Ideally we should check if we do need it first

@@ -456,6 +456,20 @@ namespace TL {
                 expr_list, default_data_attr, this->in_ompss_mode(),
                 "weakconcurrent", data_sharing_environment, extra_symbols);
 
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("none"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_NONE>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "none", data_sharing_environment, extra_symbols);
+
+        expr_list = parse_dependences_ompss_clause(
+                pragma_line.get_clause("auto"),
+                parsing_context);
+        get_info_from_dependences<DEP_OMPSS_AUTO>(
+                expr_list, default_data_attr, this->in_ompss_mode(),
+                "auto", data_sharing_environment, extra_symbols);
+
         // OpenMP standard clauses
         PragmaCustomClause depends = pragma_line.get_clause("depend");
         get_dependences_openmp(depends, parsing_context, data_sharing_environment,
@@ -789,6 +803,8 @@ namespace TL {
             case DEP_DIR_INOUT:
             case DEP_OMPSS_DIR_IN_PRIVATE:
             case DEP_OMPSS_REDUCTION:
+			case DEP_OMPSS_NONE:
+			case DEP_OMPSS_AUTO:
                 return true;
             default:
                 return false;
@@ -841,6 +857,10 @@ namespace TL {
                 return "reduction";
             case DEP_OMPSS_WEAK_REDUCTION:
                 return "weakreduction";
+			case DEP_OMPSS_NONE:
+				return "none";
+			case DEP_OMPSS_AUTO:
+				return "auto";
             default:
                 return "<<unknown-dependence-kind?>>";
         }

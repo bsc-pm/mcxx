@@ -251,6 +251,16 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 handle_dependences(n, _env.dep_weakreduction);
             }
 
+            virtual void visit(const Nodecl::OmpSs::DepNone &n)
+            {
+                handle_dependences(n, _env.dep_none);
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepAuto &n)
+            {
+                handle_dependences(n, _env.dep_auto);
+            }
+
             virtual void visit(const Nodecl::OpenMP::Final &n)
             {
                 _env.final_clause = n.get_condition();
