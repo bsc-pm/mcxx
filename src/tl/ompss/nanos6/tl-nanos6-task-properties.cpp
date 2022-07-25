@@ -93,6 +93,11 @@ namespace TL { namespace Nanos6 {
                 it++)
         {
             _implementations.insert(lower->get_device_manager().get_device(*it));
+
+            if (Interface::family_is_at_least("nanos6_task_info_contents", 5)
+                    && *it != "smp")
+                error_printf_at(_locus_of_task_creation,
+                    "Devices are not supported with the current runtime version\n");
         }
 
         if (_env.task_is_worksharing)
@@ -1091,8 +1096,19 @@ void TaskProperties::create_task_implementations_info(
                         Nodecl::FieldDesignator::make(field, value, value.get_type()));
             }
 
-            // .run_wrapper
+            if (Interface::family_is_at_least("nanos6_task_info_contents", 5))
             {
+                // .device_function_name
+                Nodecl::NodeclBase field = get_field("device_function_name");
+
+                Nodecl::NodeclBase value = const_value_to_nodecl(const_value_get_signed_int(0));
+
+                field_init.append(
+                        Nodecl::FieldDesignator::make(field, value, value.get_type()));
+            }
+            else
+            {
+                // .run_wrapper
                 Nodecl::NodeclBase field = get_field("run_wrapper");
 
                 Nodecl::NodeclBase value = const_value_to_nodecl(const_value_get_signed_int(0));
