@@ -4018,8 +4018,32 @@ void TaskProperties::create_task_implementations_info(
             {
                 // We don't change the size. This might be needed in some very
                 // rare cases which we don't consider yet.
+
+                Nodecl::NodeclBase new_size = di.size;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    // Fortran 90 [5.1.2.4.1]
+                    // If the upper bound is less than the lower bound,
+                    // the range is empty, the extent in that dimension
+                    // is zero, and the array is of zero size
+                    Nodecl::List max_arguments_list = Nodecl::List::make(
+                            Nodecl::FortranActualArgument::make(di.size),
+                            Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_zero(8, 1))));
+
+                    TL::Symbol max_intrinsic =
+                        get_fortran_intrinsic_symbol<2>("max", max_arguments_list, /* is_call */ 0);
+
+                    new_size =
+                        Nodecl::FunctionCall::make(
+                            max_intrinsic.make_nodecl(/* set_ref_type */ true),
+                            max_arguments_list,
+                            /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                            /* function-form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type());
+                }
+
                 replaced_arguments_list.append(
-                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                        Nodecl::Utils::deep_copy(new_size, TL::Scope::get_global_scope(), symbol_map));
                 {
                     Nodecl::Utils::SimpleSymbolMap lower_bound_symbol_map(&symbol_map);
                     lower_bound_symbol_map.add_map(get_induction_variable(), tl_lower_bound_sym);
@@ -4040,8 +4064,30 @@ void TaskProperties::create_task_implementations_info(
             // No need to do anything special here.
             for (DimensionInfo di : dim_info)
             {
+                Nodecl::NodeclBase new_size = di.size;
+                if (IS_FORTRAN_LANGUAGE)
+                {
+                    // Fortran 90 [5.1.2.4.1]
+                    // If the upper bound is less than the lower bound,
+                    // the range is empty, the extent in that dimension
+                    // is zero, and the array is of zero size
+                    Nodecl::List max_arguments_list = Nodecl::List::make(
+                            Nodecl::FortranActualArgument::make(di.size),
+                            Nodecl::FortranActualArgument::make(const_value_to_nodecl(const_value_get_zero(8, 1))));
+
+                    TL::Symbol max_intrinsic =
+                        get_fortran_intrinsic_symbol<2>("max", max_arguments_list, /* is_call */ 0);
+
+                    new_size =
+                        Nodecl::FunctionCall::make(
+                            max_intrinsic.make_nodecl(/* set_ref_type */ true),
+                            max_arguments_list,
+                            /* alternate-symbol */ Nodecl::NodeclBase::null(),
+                            /* function-form */ Nodecl::NodeclBase::null(),
+                            TL::Type::get_void_type());
+                }
                 replaced_arguments_list.append(
-                        Nodecl::Utils::deep_copy(di.size, TL::Scope::get_global_scope(), symbol_map));
+                        Nodecl::Utils::deep_copy(new_size, TL::Scope::get_global_scope(), symbol_map));
                 replaced_arguments_list.append(
                         Nodecl::Utils::deep_copy(di.lower, TL::Scope::get_global_scope(), symbol_map));
                 replaced_arguments_list.append(
