@@ -3165,6 +3165,7 @@ src_driver_plaincxx_LDADD += $(top_builddir)/src/frontend/fortran/libmf03.la
 src_driver_plaincxx_LDADD += $(top_builddir)/src/driver/fortran/libmf03-driver.la
 src_driver_plaincxx_LDADD += $(sqlite3_LIBS)
 src_driver_plaincxx_LDADD += $(quadmath_LIBS)
+src_driver_plaincxx_LDADD += $(LTLIBICONV)
 src_driver_plaincxx_LDADD += -lm
 
 if WINDOWS_BUILD
