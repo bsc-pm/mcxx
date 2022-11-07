@@ -1,7 +1,8 @@
 /*
 <testinfo>
 test_generator=config/mercurium-ompss-2
-test_nolink=yes
+test_ignore="yes"
+test_ignore_reason="Modern nanos6 devices are not supported"
 </testinfo>
 */
 
