@@ -455,7 +455,7 @@ namespace TL { namespace OmpSs {
         _sym(function_sym),
         _untied(task_info._untied),
         _wait(task_info._wait),
-		_nowait(task_info._nowait)
+        _nowait(task_info._nowait)
     {
         // Copy the target information
         set_target_info(TargetInfo(task_info._target_info, translation_map, function_sym));

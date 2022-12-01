@@ -411,11 +411,11 @@ namespace TL { namespace OpenMP {
             concurrent_arguments,
             commutative_arguments,
             weakcommutative_arguments,
-			weakconcurrent_arguments,
+	    weakconcurrent_arguments,
             reduction_arguments,
             weakreduction_arguments,
-			none_arguments,
-			auto_arguments;
+	    none_arguments,
+	    auto_arguments;
 
         ObjectList<Nodecl::NodeclBase> reduction_items;
         ObjectList<Nodecl::NodeclBase> weakreduction_items;
@@ -488,8 +488,8 @@ namespace TL { namespace OpenMP {
                 { commutative_arguments, "commutative", NULL },
                 { weakcommutative_arguments, "weakcommutative", NULL },
                 { weakconcurrent_arguments, "weakconcurrent", NULL },
-				{ none_arguments, "none", NULL },
-				{ auto_arguments, "auto", NULL }
+		{ none_arguments, "none", NULL },
+		{ auto_arguments, "auto", NULL }
             };
 
             for (DependencesClauses* it = deps_clauses;
@@ -609,8 +609,8 @@ namespace TL { namespace OpenMP {
                 { weakconcurrent_arguments,  DEP_OMPSS_WEAK_CONCURRENT    },
                 { reduction_arguments,       DEP_OMPSS_REDUCTION      },
                 { weakreduction_arguments,   DEP_OMPSS_WEAK_REDUCTION },
-				{ none_arguments,            DEP_OMPSS_NONE },
-				{ auto_arguments,       DEP_OMPSS_AUTO }
+		{ none_arguments,            DEP_OMPSS_NONE },
+		{ auto_arguments,            DEP_OMPSS_AUTO }
             };
 
             for (DependencesInformation* it = deps_info;

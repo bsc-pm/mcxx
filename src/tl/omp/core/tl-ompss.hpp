@@ -167,7 +167,7 @@ namespace TL { namespace OmpSs {
 
             bool _untied,
                  _wait,  // OmpSs-2 wait clause
-				 _nowait; // OmpSs-2 cluster nowait clause
+                 _nowait; // OmpSs-2 cluster nowait clause
 
             Nodecl::NodeclBase _lint_verified;
             Nodecl::NodeclBase _if_clause_cond_expr;
