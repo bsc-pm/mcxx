@@ -231,6 +231,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
                 handle_dependences(n, _env.dep_weakcommutative);
             }
 
+            virtual void visit(const Nodecl::OmpSs::DepWeakConcurrent &n)
+            {
+                handle_dependences(n, _env.dep_weakconcurrent);
+            }
+
             virtual void visit(const Nodecl::OmpSs::DepConcurrent &n)
             {
                 handle_dependences(n, _env.dep_concurrent);
@@ -244,6 +249,16 @@ namespace TL { namespace OpenMP { namespace Lowering {
             virtual void visit(const Nodecl::OmpSs::DepWeakReduction &n)
             {
                 handle_dependences(n, _env.dep_weakreduction);
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepNone &n)
+            {
+                handle_dependences(n, _env.dep_none);
+            }
+
+            virtual void visit(const Nodecl::OmpSs::DepAuto &n)
+            {
+                handle_dependences(n, _env.dep_auto);
             }
 
             virtual void visit(const Nodecl::OpenMP::Final &n)
@@ -264,6 +279,16 @@ namespace TL { namespace OpenMP { namespace Lowering {
             virtual void visit(const Nodecl::OmpSs::Wait &n)
             {
                 _env.wait_clause = true;
+            }
+
+            virtual void visit(const Nodecl::OmpSs::Nowait &n)
+            {
+                _env.nowait_clause = true;
+            }
+
+            virtual void visit(const Nodecl::OpenMP::NoFlush &n)
+            {
+                _env.noflush_clause = true;
             }
 
             virtual void visit(const Nodecl::OmpSs::TaskLabel &n)
@@ -412,8 +437,8 @@ namespace TL { namespace OpenMP { namespace Lowering {
 
     DirectiveEnvironment::DirectiveEnvironment(Nodecl::NodeclBase environment) :
         is_tied(true), task_is_worksharing(false), task_is_taskwait_with_deps(false),
-        task_is_taskcall(false), wait_clause(false),
-        any_task_dependence(false), locus_of_task_declaration(NULL)
+        task_is_taskcall(false), wait_clause(false), nowait_clause(false),
+        any_task_dependence(false), noflush_clause(false), locus_of_task_declaration(NULL)
     {
         // Traversing & filling the directive environment
         DirectiveEnvironmentVisitor visitor(*this);

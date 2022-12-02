@@ -65,7 +65,13 @@ namespace TL { namespace OpenMP {
         //   Weakreduction dependence type
         DEP_OMPSS_WEAK_REDUCTION = BITMAP(9),
         //   Weakcommutative dependence type
-        DEP_OMPSS_WEAK_COMMUTATIVE = BITMAP(10)
+        DEP_OMPSS_WEAK_COMMUTATIVE = BITMAP(10),
+        //   Weakconcurrent dependence type
+        DEP_OMPSS_WEAK_CONCURRENT = BITMAP(11),
+	//   None dependence type
+	DEP_OMPSS_NONE = BITMAP(12),
+	//   Allmemory dependence type
+	DEP_OMPSS_AUTO = BITMAP(13)
     };
 
     bool is_strict_dependency(DependencyDirection dir);

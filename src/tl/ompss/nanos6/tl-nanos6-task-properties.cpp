@@ -139,9 +139,13 @@ namespace TL { namespace Nanos6 {
                 { _env.dep_concurrent },
 
                 { _env.dep_weakcommutative },
+                { _env.dep_weakconcurrent },
 
                 { _env.dep_reduction },
-                { _env.dep_weakreduction }
+                { _env.dep_weakreduction },
+
+                { _env.dep_none },
+                { _env.dep_auto }
             };
 
             for (DependencesSet *dep_set = deps;
@@ -239,9 +243,13 @@ namespace TL { namespace Nanos6 {
                 { _env.dep_concurrent },
 
                 { _env.dep_weakcommutative },
+                { _env.dep_weakconcurrent },
 
                 { _env.dep_reduction },
-                { _env.dep_weakreduction }
+                { _env.dep_weakreduction },
+
+                { _env.dep_none },
+                { _env.dep_auto }
             };
 
             for (DependencesSet *dep_set = deps;
@@ -456,7 +464,7 @@ namespace TL { namespace Nanos6 {
         //                          ((!if_expr != 0)    << 1) |
         //                          ((is_loop != 0)     << 2) |
         //                          ((wait_clause != 0) << 3) |
-        //                          ((preallocated_args_struct != 0) << 4)
+        //                          ((preallocated_args_struct != 0) << 4) |
         //
         //          ** CUDA tasks are if(0) when created in final context, so
         //             (nanos6_in_final() << 1)
@@ -534,6 +542,9 @@ namespace TL { namespace Nanos6 {
                 compute_generic_flag_c(_env.lint_verified,
                         /* default value*/ 0, /* bit */ 6 + bit_offset, /* out */ task_flags_expr);
             }
+
+            compute_generic_flag_c(Nodecl::NodeclBase::null(),
+                    _env.nowait_clause, /* bit */ 7 + bit_offset, /* out */ task_flags_expr);
 
             new_stmts.append(
                     Nodecl::ExpressionStatement::make(
@@ -861,9 +872,13 @@ namespace TL { namespace Nanos6 {
             { _env.dep_concurrent  },
 
             { _env.dep_weakcommutative },
+            { _env.dep_weakconcurrent },
 
             { _env.dep_reduction     },
             { _env.dep_weakreduction },
+
+            { _env.dep_none     },
+            { _env.dep_auto },
         };
 
         TL::Symbol ind_var = get_induction_variable();
@@ -911,9 +926,13 @@ namespace TL { namespace Nanos6 {
             { _env.dep_concurrent  },
 
             { _env.dep_weakcommutative },
+            { _env.dep_weakconcurrent },
 
             { _env.dep_reduction     },
             { _env.dep_weakreduction },
+
+            { _env.dep_none     },
+            { _env.dep_auto },
         };
 
         // Common dependences
@@ -4247,9 +4266,13 @@ void TaskProperties::create_task_implementations_info(
             { _env.dep_concurrent,  "nanos6_register_region_concurrent_depinfo", 5, "concurrent dependences"   },
 
             { _env.dep_weakcommutative, "nanos6_register_region_weak_commutative_depinfo", 6, "weak commutative dependences" },
+            { _env.dep_weakconcurrent, "nanos6_register_region_weak_concurrent_depinfo", 6, "weak concurrent dependences" },
 
             { _env.dep_reduction,     "nanos6_register_region_reduction_depinfo", 5, "reduction dependences"           },
             { _env.dep_weakreduction, "nanos6_register_region_weak_reduction_depinfo", 5, "weak reduction dependences" },
+
+            { _env.dep_none,      "nanos6_register_region_none_depinfo", 5, "none dependences"           },
+            { _env.dep_auto, "nanos6_register_region_auto_depinfo", 5, "auto dependences" },
         };
 
         // FIXME: this might emit a warning for an unused variable. Ideally we should check if we do need it first

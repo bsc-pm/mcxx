@@ -111,7 +111,9 @@ namespace TL { namespace Nanos6 {
 
     void Lower::lower_taskwait(const Nodecl::OpenMP::Taskwait& node)
     {
-        TL::Symbol nanos_taskwait_sym = get_nanos6_function_symbol("nanos6_taskwait");
+		TL::OpenMP::Lowering::DirectiveEnvironment env = node.get_environment();
+        TL::Symbol nanos_taskwait_sym = env.noflush_clause ? get_nanos6_function_symbol("nanos6_taskwait_noflush") :
+                                                             get_nanos6_function_symbol("nanos6_taskwait");
         const char* locus = locus_to_str(node.get_locus());
 
         Nodecl::NodeclBase taskwait_tree =

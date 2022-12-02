@@ -641,6 +641,7 @@ omp-execution-control : NODECL_OPEN_M_P*IF([condition]expression)
                       | NODECL_OPEN_M_P*UNTIED()
 # OmpSsv2 clause that  means that a task/taskloop has to wait for its children
                       | NODECL_OMP_SS*WAIT()
+                      | NODECL_OMP_SS*NOWAIT()
 
 omp-critical-info: NODECL_OPEN_M_P*CRITICAL_NAME() text
 
@@ -752,6 +753,9 @@ omp-deps-info: NODECL_OMP_SS*DEP_CONCURRENT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_OUT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_INOUT([exprs]expression-seq)
                 | NODECL_OMP_SS*DEP_WEAK_COMMUTATIVE([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_WEAK_CONCURRENT([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_NONE([exprs]expression-seq)
+                | NODECL_OMP_SS*DEP_AUTO([exprs]expression-seq)
 
 ompss-device-info : NODECL_OMP_SS*TARGET([devices]text-seq, [items]ompss-device-info-clauses-seq-opt)
 

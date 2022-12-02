@@ -411,8 +411,11 @@ namespace TL { namespace OpenMP {
             concurrent_arguments,
             commutative_arguments,
             weakcommutative_arguments,
+	    weakconcurrent_arguments,
             reduction_arguments,
-            weakreduction_arguments;
+            weakreduction_arguments,
+	    none_arguments,
+	    auto_arguments;
 
         ObjectList<Nodecl::NodeclBase> reduction_items;
         ObjectList<Nodecl::NodeclBase> weakreduction_items;
@@ -484,6 +487,9 @@ namespace TL { namespace OpenMP {
                 { concurrent_arguments, "concurrent", NULL },
                 { commutative_arguments, "commutative", NULL },
                 { weakcommutative_arguments, "weakcommutative", NULL },
+                { weakconcurrent_arguments, "weakconcurrent", NULL },
+		{ none_arguments, "none", NULL },
+		{ auto_arguments, "auto", NULL }
             };
 
             for (DependencesClauses* it = deps_clauses;
@@ -600,8 +606,11 @@ namespace TL { namespace OpenMP {
                 { concurrent_arguments,      DEP_OMPSS_CONCURRENT     },
                 { commutative_arguments,     DEP_OMPSS_COMMUTATIVE    },
                 { weakcommutative_arguments, DEP_OMPSS_WEAK_COMMUTATIVE    },
+                { weakconcurrent_arguments,  DEP_OMPSS_WEAK_CONCURRENT    },
                 { reduction_arguments,       DEP_OMPSS_REDUCTION      },
                 { weakreduction_arguments,   DEP_OMPSS_WEAK_REDUCTION },
+		{ none_arguments,            DEP_OMPSS_NONE },
+		{ auto_arguments,            DEP_OMPSS_AUTO }
             };
 
             for (DependencesInformation* it = deps_info;
@@ -809,6 +818,7 @@ namespace TL { namespace OpenMP {
         task_info.set_untied(is_untied_task);
 
         task_info.set_wait(pragma_line.get_clause("wait").is_defined());
+        task_info.set_nowait(pragma_line.get_clause("nowait").is_defined());
 
         PragmaCustomClause lint_verified_clause = pragma_line.get_clause("verified");
         if (lint_verified_clause.is_defined())

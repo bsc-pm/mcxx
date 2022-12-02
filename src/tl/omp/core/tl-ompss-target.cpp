@@ -626,9 +626,15 @@ namespace TL
                             }
                         case DEP_OMPSS_WEAK_INOUT:
                         case DEP_OMPSS_WEAK_COMMUTATIVE:
+                        case DEP_OMPSS_WEAK_CONCURRENT:
                             {
                                 p = &dep_list_weakinout;
                                 break;
+                            }
+                        case DEP_OMPSS_NONE:
+                        case DEP_OMPSS_AUTO:
+                            {
+                                internal_error("Cannot capture variable with none or auto dependence", 0);
                             }
                         default:
                             {

@@ -98,8 +98,11 @@ namespace TL { namespace OpenMP { namespace Lowering {
         TL::ObjectList<Nodecl::NodeclBase> dep_commutative;
         TL::ObjectList<Nodecl::NodeclBase> dep_concurrent;
         TL::ObjectList<Nodecl::NodeclBase> dep_weakcommutative;
+        TL::ObjectList<Nodecl::NodeclBase> dep_weakconcurrent;
         TL::ObjectList<Nodecl::NodeclBase> dep_reduction;
         TL::ObjectList<Nodecl::NodeclBase> dep_weakreduction;
+        TL::ObjectList<Nodecl::NodeclBase> dep_none;
+        TL::ObjectList<Nodecl::NodeclBase> dep_auto;
 
         /* --------  OmpSs-2 scheduling & threshold information ------ */
         Nodecl::NodeclBase final_clause;
@@ -123,7 +126,9 @@ namespace TL { namespace OpenMP { namespace Lowering {
         bool task_is_taskwait_with_deps;
         bool task_is_taskcall;
         bool wait_clause;
+        bool nowait_clause;
         bool any_task_dependence;
+		bool noflush_clause;
 
         /* --------  Debug & profiling information  ------ */
         std::string task_label;

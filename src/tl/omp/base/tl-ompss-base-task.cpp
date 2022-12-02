@@ -477,6 +477,24 @@ namespace TL { namespace OmpSs {
                 locus,
                 result_list);
 
+        _base->make_item_list<Nodecl::OmpSs::DepWeakConcurrent>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_WEAK_CONCURRENT,
+                locus,
+                result_list);
+
+        _base->make_item_list<Nodecl::OmpSs::DepNone>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_NONE,
+                locus,
+                result_list);
+
+        _base->make_item_list<Nodecl::OmpSs::DepAuto>(
+                task_dependences,
+                OpenMP::DEP_OMPSS_AUTO,
+                locus,
+                result_list);
+
         _base->make_item_list<Nodecl::OmpSs::DepCommutative>(
                 task_dependences,
                 OpenMP::DEP_OMPSS_COMMUTATIVE,
@@ -621,6 +639,9 @@ namespace TL { namespace OmpSs {
 
         if (function_task_info.get_wait())
             result_list.append(Nodecl::OmpSs::Wait::make(locus));
+
+        if (function_task_info.get_nowait())
+            result_list.append(Nodecl::OmpSs::Nowait::make(locus));
 
         {
             Nodecl::NodeclBase expr = function_task_info.get_lint_verified();
@@ -942,10 +963,26 @@ namespace TL { namespace OmpSs {
             report_dep(dep_inout.get_exprs(), OpenMP::DEP_OMPSS_COMMUTATIVE);
         }
 
+        void visit(const Nodecl::OmpSs::DepWeakConcurrent& dep_concurrent)
+        {
+            report_dep(dep_concurrent.get_exprs(), OpenMP::DEP_OMPSS_WEAK_CONCURRENT);
+        }
+
         void visit(const Nodecl::OmpSs::DepWeakCommutative& dep_commutative)
         {
             report_dep(dep_commutative.get_exprs(), OpenMP::DEP_OMPSS_WEAK_COMMUTATIVE);
         }
+
+        void visit(const Nodecl::OmpSs::DepNone& dep_none)
+        {
+            report_dep(dep_none.get_exprs(), OpenMP::DEP_OMPSS_NONE);
+        }
+
+        void visit(const Nodecl::OmpSs::DepAuto& dep_auto)
+        {
+            report_dep(dep_auto.get_exprs(), OpenMP::DEP_OMPSS_AUTO);
+        }
+
     };
 
     struct ReportExecEnvironmentCopies : public Nodecl::ExhaustiveVisitor<void>
