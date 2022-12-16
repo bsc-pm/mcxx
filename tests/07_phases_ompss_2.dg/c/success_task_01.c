@@ -1,7 +1,8 @@
 /*
 <testinfo>
 test_generator="config/mercurium-ompss-2"
-test_nolink=yes
+test_ignore=yes
+test_ignore_reason="task for is not supported anymore"
 </testinfo>
 */
 
