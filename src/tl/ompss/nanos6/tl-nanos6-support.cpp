@@ -464,6 +464,20 @@ namespace TL { namespace Nanos6 {
         return fun_sym;
     }
 
+    TL::Symbol try_get_nanos6_function_symbol(const std::string &name, const std::string &fallback)
+    {
+        TL::Symbol fun_sym = TL::Scope::get_global_scope().get_symbol_from_name(name);
+
+        if (!fun_sym.is_valid() || !fun_sym.is_function())
+        {
+            warn_printf_at(NULL,
+                    "%s runtime symbol not found, using %s\n", name.c_str(), fallback.c_str());
+            fun_sym = get_nanos6_function_symbol(fallback);
+        }
+
+        return fun_sym;
+    }
+
     TL::Symbol get_nanos6_register_loop_bounds_function()
     {
         ERROR_CONDITION(
