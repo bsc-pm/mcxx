@@ -44,6 +44,7 @@ namespace TL { namespace Nanos6 {
     TL::Symbol get_nanos6_loop_bounds_class();
 
     TL::Symbol get_nanos6_function_symbol(const std::string &name);
+    TL::Symbol try_get_nanos6_function_symbol(const std::string &name, const std::string &fallback);
     TL::Symbol get_nanos6_register_loop_bounds_function();
 
     void add_extra_mappings_for_vla_types(
