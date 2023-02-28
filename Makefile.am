@@ -341,6 +341,7 @@ src_frontend_libmcxx_la_LIBADD = \
 					./lib/libmcxx-utils.la \
                     ./src/frontend/libmcxx-process.la \
                     ./src/frontend/libgccbuiltins.la \
+					$(LIBICONV) \
 					$(quadmath_LIBS) \
 					$(END)
 
@@ -2506,7 +2507,7 @@ src_tl_ompss_oss_lint_libtloss_lint_la_CXXFLAGS = $(phases_cxxflags) \
                           -I $(top_srcdir)/src/tl/analysis/tdg \
                           -I $(top_srcdir)/src/tl/analysis/interface \
                           $(END)
-                          
+
 
 src_tl_ompss_oss_lint_libtloss_lint_la_LDFLAGS = $(phases_ldflags)
 src_tl_ompss_oss_lint_libtloss_lint_la_LIBADD = $(phases_libadd) \
@@ -3525,7 +3526,7 @@ BUILT_SOURCES += $(INSTALL_CONFIG_FILES) $(INSTALL_SCRIPT_COMPILER_NAMES)
 # Generates configs
 config/% : config/template.$(notdir %) Makefile
 	$(AM_V_GEN)( $(config_edit) "$<" > "$@.tmp"; mv -f "$@.tmp" "$@" )
- 
+
 config-install-data-hook: remove-old-profiles
 
 EXTRA_DIST += \
